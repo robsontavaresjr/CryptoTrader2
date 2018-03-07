@@ -1201,7 +1201,7 @@ class SlaveTrader:
 
 def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisition_range, operation_range,
                                     risk_function,
-                                    source='google',
+                                    source='quandl',
                                     brokerfee=14.9,
                                     leverage=1.,
                                     interest=1.19,
