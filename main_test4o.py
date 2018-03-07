@@ -18,18 +18,18 @@ StrategyLocation = 'Strategies/fast_n_furious.txt'
 
 # ==============================================================================
 # USE SOMENTE SE A VARIÁVEL ToExcel NÃO ESTIVER MARCADA COMO TRUE
-stocks = ['CTIP3','RADL3','BVMF3']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
+stocks = ['AAPL','BVMF3']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
 # ==============================================================================
 cash = 100E3
 
 # DB = DataBaseLoader('Bovespa_2010_2016.pkl')
 
-start_aq = (2014, 1, 1)
-end_aq   = (2016, 5, 4)
+start_aq = (2016, 1, 4)
+end_aq   = (2018, 3, 2)
 AqRange  = [start_aq, end_aq]
 
-start_op = (2015,1, 1)
-end_op = (2016, 5, 4)
+start_op = (2017,1, 2)
+end_op = (2018, 3, 2)
 OpRange = [start_op, end_op]
 
 # ==============================================================================
@@ -44,7 +44,7 @@ Slave = robot.backtest_simulation_acquisition(StrategyLocation, stocks, cash, Aq
                                               show_statistics=True)
 #==============================================================================
 # # ==============================================================================
-#                                               
+#
 # random = robot.backtest_simulation_acquisition(r'Strategies/atr_furious.txt', stocks, cash, AqRange, OpRange,
 #                                               risklib.bet_all ,
 #                                               brokerfee=14.9,
@@ -54,7 +54,7 @@ Slave = robot.backtest_simulation_acquisition(StrategyLocation, stocks, cash, Aq
 #                                               stop_loss=None,
 #                                               operation_period=0,
 #                                               show_statistics=True)
-#                                               
+#
 # print " Average Ratio: ", np.mean(np.array(Slave.total_cash_log)/np.array(random.total_cash_log))
 #==============================================================================
 ind = Indicators(Slave)

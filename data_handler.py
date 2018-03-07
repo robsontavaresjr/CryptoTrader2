@@ -3,30 +3,32 @@
 import datetime as dt
 import numpy as np
 import pandas as pds
-import pandas.io.data as pd
+import pandas_datareader.data as pd
 
 
 ############################################################################################################
 
 
 class Data:
-    def __init__(self, ticker, start, end, source='google', workingdays=None):
+    def __init__(self, ticker, start, end, source='quandl', workingdays=None):
         
         if type(start) == dt.datetime:
-            self.start = start
+            self.start = str(start.date())
         else:
-            self.start = dt.datetime(*start)
+            self.start = start
             
         if type(end) == dt.datetime:
-            self.end = end
+            self.end = str(end.date())
         else:
-            self.end = dt.datetime(*end)
-            
+            self.end = end
+
         self.ticker = ticker
         self.source = source
         self.order = None
 
-        stock_data = pd.DataReader(self.ticker, self.source, start=self.start, end=self.end)
+
+        stock_data = 'WIKI/' + self.ticker
+        stock_data = pd.DataReader(stock_data, self.source, start=self.start, end=self.end)
 
         self.C = stock_data['Close']
         self.H = stock_data['High']
@@ -359,7 +361,7 @@ def VaR(slave, simulations=1000, risk = 0.05):
     return pds.Series(portfolioVaR, index = dates)
 
 
-def database_builder(tickerList, start_aq, end_aq, source='google'):
+def database_builder(tickerList, start_aq, end_aq, source='quandl'):
 
     database = {}
 
@@ -695,10 +697,10 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
 
 ############################################################################################################    
-if __name__ == '__main__':
-    #data = Data('CIEL3', (2015, 1, 1), (2016, 4, 20), source='google')  # ,WorkingDays = WorkingDays)
-
-    db = database_builder(['PETR3','ABEV3'],(2015,1,1),(2016,1,1))
-
-#    ind,wd = calculate_indicators(['PETR3','ABEV3'],db,indicator_filter = ['C_HV_20','CLOSE'])
-    ############################################################################################################
+# if __name__ == '__main__':
+#     #data = Data('CIEL3', (2015, 1, 1), (2016, 4, 20), source='google')  # ,WorkingDays = WorkingDays)
+#
+#     db = database_builder(['AAPL','NFLX'],'2017-02-01','2018-03-02')
+#
+#     ind,wd = calculate_indicators(['AAPL','NFLX'],db,indicator_filter = ['C_HV_20','CLOSE'])
+#     ############################################################################################################
