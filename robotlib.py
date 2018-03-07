@@ -5,7 +5,7 @@ Created on Thu Oct 22 09:41:30 2015
 @author: Aluno - Joao
 """
 import tradex
-import datetime
+import datetime as dt
 import copy
 import risklib
 import math
@@ -113,14 +113,14 @@ class SlaveTrader:
         self.stop_win = None
         self.stop_loss = None
 
-        self.operation_period = datetime.timedelta(0)
+        self.operation_period = dt.timedelta(0)
 
         # Operational varibles
 
-        self.init_period_date = None  # datetime
-        self.end_period_date = None  # datetime
+        self.init_period_date = None  # dt.datetime
+        self.end_period_date = None  # dt.datetime
         self.init_period_cash = None
-        self.last_operational_date = datetime.datetime.min
+        self.last_operational_date = dt.datetime.min
 
         ######################################################
 
@@ -467,8 +467,8 @@ class SlaveTrader:
 
                     dict_size = 20
 
-                    sim_aq_init_date = current_date - datetime.timedelta((10 * dict_size) + 30)
-                    sim_init_date = current_date - datetime.timedelta(10 * dict_size)
+                    sim_aq_init_date = current_date - dt.timedelta((10 * dict_size) + 30)
+                    sim_init_date = current_date - dt.timedelta(10 * dict_size)
 
                     print "Simulating trader for optimal_f function"
 
@@ -614,7 +614,7 @@ class SlaveTrader:
 
         else:
 
-            if self.operation_period != datetime.timedelta(0):
+            if self.operation_period != dt.timedelta(0):
 
                 if current_date > self.end_period_date:
 
@@ -1102,7 +1102,7 @@ class SlaveTrader:
 
             stockreturn = [0 for i in range(max_ret)]
             stockinvest = [0 for i in range(max_ret)]
-            dates = [datetime.datetime(1677, 9, 23, 0, 0) for i in range(max_ret)]
+            dates = [dt.datetime(1677, 9, 23, 0, 0) for i in range(max_ret)]
 
             index = max_ret
 
@@ -1111,7 +1111,7 @@ class SlaveTrader:
 
             for eachOp in operations:
 
-                if type(from_date_dict) == dict and type(eachOp['DATE']) == datetime.datetime:
+                if type(from_date_dict) == dict and type(eachOp['DATE']) == dt.datetime:
 
                     from_date = from_date_dict[eachKey]
 
@@ -1211,29 +1211,29 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
                                     show_statistics=True,
                                     show_dates=False):
     import data_handler
-    import datetime
+    import datetime as dt
     import tradex
     import matplotlib.pyplot as plt
 
-    if type(acquisition_range[0]) == datetime.datetime:
+    if type(acquisition_range[0]) == dt.datetime:
         start_aq = acquisition_range[0]
     else:
-        start_aq = datetime.datetime(*acquisition_range[0])
+        start_aq = dt.datetime(*acquisition_range[0])
 
-    if type(acquisition_range[1]) == datetime.datetime:
+    if type(acquisition_range[1]) == dt.datetime:
         end_aq = acquisition_range[1]
     else:
-        end_aq = datetime.datetime(*acquisition_range[1])
+        end_aq = dt.datetime(*acquisition_range[1])
 
-    if type(operation_range[0]) == datetime.datetime:
+    if type(operation_range[0]) == dt.datetime:
         start_op = operation_range[0]
     else:
-        start_op = datetime.datetime(*operation_range[0])
+        start_op = dt.datetime(*operation_range[0])
 
-    if type(operation_range[1]) == datetime.datetime:
+    if type(operation_range[1]) == dt.datetime:
         end_op = operation_range[1]
     else:
-        end_op = datetime.datetime(*operation_range[1])
+        end_op = dt.datetime(*operation_range[1])
 
     ############################################################################################################
     if type(strategy_or_location) == str:
@@ -1244,6 +1244,9 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     ############################################################################################################
 
     ############################################################################################################
+
+    print type(start_aq), start_aq, type(end_aq), end_aq
+
     database = data_handler.database_builder(stocks, start_aq, end_aq, source=source)
     indicators, working_days = data_handler.calculate_indicators(stocks, database,indicator_filter = strategy_struct[0])
     
@@ -1261,7 +1264,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     trader.set_interest(interest)
     trader.set_stoploss(stop_loss)
     trader.set_stopwin(stop_win)
-    trader.set_operation_period(datetime.timedelta(operation_period))
+    trader.set_operation_period(dt.timedelta(operation_period))
 
     ############################################################################################################
 
@@ -1269,7 +1272,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     day_list = [start_op]
 
     while not stop_flag:
-        next_day = day_list[-1] + datetime.timedelta(days=1)
+        next_day = day_list[-1] + dt.timedelta(days=1)
         day_list.append(next_day)
 
         if next_day >= end_op:
@@ -1355,8 +1358,8 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
     import tradex
     import matplotlib.pyplot as plt
 
-    start_op = datetime.datetime(*operation_range[0])
-    end_op = datetime.datetime(*operation_range[1])
+    start_op = dt.datetime(*operation_range[0])
+    end_op = dt.datetime(*operation_range[1])
 
     ############################################################################################################
     if type(database_or_location) == str:
@@ -1388,7 +1391,7 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
     day_list = [start_op]
 
     while stop_flag == False:
-        next_day = day_list[-1] + datetime.timedelta(days=1)
+        next_day = day_list[-1] + dt.timedelta(days=1)
         day_list.append(next_day)
 
         if next_day >= end_op:

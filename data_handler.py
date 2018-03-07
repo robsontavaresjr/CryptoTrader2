@@ -13,15 +13,15 @@ class Data:
     def __init__(self, ticker, start, end, source='quandl', workingdays=None):
         
         if type(start) == dt.datetime:
-            self.start = str(start.date())
-        if type(start) == str:
+            self.start = str(start).split(' ')[0]
+        elif type(start) == str:
             self.start = start
         else:
             self.start = str(dt.datetime(*start).date())
             
         if type(end) == dt.datetime:
-            self.end = str(end.date())
-        if type(end) == str:
+            self.end = str(end).split(' ')[0]
+        elif type(end) == str:
             self.end = end
         else:
             self.end = str(dt.datetime(*end).date())
@@ -32,7 +32,7 @@ class Data:
 
 
         stock_data = 'WIKI/' + self.ticker
-        stock_data = pd.DataReader(stock_data, self.source, start=self.start, end=self.end)
+        stock_data = pd.DataReader(stock_data, self.source, self.start, self.end)
 
         self.C = stock_data['Close']
         self.H = stock_data['High']
@@ -425,7 +425,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
     indicators = {}
     working_days = {}
-    indicator_strings = ['OPEN','HIGH','CLOSE','LOW',
+    indicator_strings = ['OPEN', 'HIGH', 'CLOSE','LOW',
                          'VOLUME','LNR','IFR',
                          'IFRS', 'MMA', 'STD',
                          'MME', 'HV', 'UBB',
