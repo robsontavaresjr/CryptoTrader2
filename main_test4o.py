@@ -18,7 +18,7 @@ StrategyLocation = 'Strategies/fast_n_furious.txt'
 
 # ==============================================================================
 # USE SOMENTE SE A VARIÁVEL ToExcel NÃO ESTIVER MARCADA COMO TRUE
-stocks = ['AAPL','BVMF3']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
+stocks = ['AAPL','NFLX']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
 # ==============================================================================
 cash = 100E3
 

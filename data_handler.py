@@ -14,13 +14,17 @@ class Data:
         
         if type(start) == dt.datetime:
             self.start = str(start.date())
-        else:
+        if type(start) == str:
             self.start = start
+        else:
+            self.start = str(dt.datetime(*start).date())
             
         if type(end) == dt.datetime:
             self.end = str(end.date())
-        else:
+        if type(end) == str:
             self.end = end
+        else:
+            self.end = str(dt.datetime(*end).date())
 
         self.ticker = ticker
         self.source = source
