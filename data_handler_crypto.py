@@ -5,7 +5,7 @@ import time
 
 class Data:
 
-    def __init__(self, ticker, start, end, interval='1h'):
+    def __init__(self, ticker, start, end, interval='1D'):
 
         self.interval = interval
 
@@ -32,12 +32,12 @@ class Data:
 
         #handling data
         self.rawData = response.json()
-        self.cryptoData = pd.DataFrame(self.rawData)
-        self.cryptoData.columns = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
-        self.cryptoData = self.cryptoData['Time'].apply(lambda x: dt.datetime.fromtimestamp(x/1000))
+        self.cryptoData = pd.DataFrame(self.rawData, columns = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume'])
+        self.cryptoData['Time'] = self.cryptoData['Time'].apply(lambda x: dt.datetime.fromtimestamp(x/1000))
 
-        self.C = self.cryptoData['Close']
-        self.H = self.cryptoData['High']
-        self.L = self.cryptoData['Low']
-        self.V = self.cryptoData['Volume']
-        self.O = self.cryptoData['Open']
+        # self.C = self.cryptoData['Close']
+        # self.H = self.cryptoData['High']
+        # self.L = self.cryptoData['Low']
+        # self.V = self.cryptoData['Volume']
+        # self.O = self.cryptoData['Open']
+data = Data('BTCUSD', dt.datetime(2018, 1, 1), dt.datetime(2018, 3, 1))

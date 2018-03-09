@@ -4,64 +4,105 @@ import datetime as dt
 import numpy as np
 import pandas as pds
 import pandas_datareader.data as pd
-
+import time
+import requests
 
 ############################################################################################################
 
 
 class Data:
-    def __init__(self, ticker, start, end, source='quandl', workingdays=None):
-        
-        if type(start) == dt.datetime:
-            self.start = str(start).split(' ')[0]
-        elif type(start) == str:
-            self.start = start
-        else:
-            self.start = str(dt.datetime(*start).date())
-            
-        if type(end) == dt.datetime:
-            self.end = str(end).split(' ')[0]
-        elif type(end) == str:
-            self.end = end
-        else:
-            self.end = str(dt.datetime(*end).date())
+    def __init__(self, ticker, start, end, source='bitfinex', interval = '1D', workingdays=None):
 
-        self.ticker = ticker
-        self.source = source
-        self.order = None
+        if source == 'quandl':
+
+            if type(start) == dt.datetime:
+                self.start = str(start).split(' ')[0]
+            elif type(start) == str:
+                self.start = start
+            else:
+                self.start = str(dt.datetime(*start).date())
+
+            if type(end) == dt.datetime:
+                self.end = str(end).split(' ')[0]
+            elif type(end) == str:
+                self.end = end
+            else:
+                self.end = str(dt.datetime(*end).date())
+
+            self.ticker = ticker
+            self.source = source
+            self.order = None
 
 
-        stock_data = 'WIKI/' + self.ticker
-        stock_data = pd.DataReader(stock_data, self.source, self.start, self.end)
+            stock_data = 'WIKI/' + self.ticker
+            stock_data = pds.DataReader(stock_data, self.source, self.start, self.end)
 
-        self.C = stock_data['Close']
-        self.H = stock_data['High']
-        self.L = stock_data['Low']
-        self.V = stock_data['Volume']
-        self.O = stock_data['Open']
-        self.dates = map(lambda t: t.to_datetime(), stock_data.index)
+            self.C = stock_data['Close']
+            self.H = stock_data['High']
+            self.L = stock_data['Low']
+            self.V = stock_data['Volume']
+            self.O = stock_data['Open']
+            self.dates = map(lambda t: t.to_datetime(), stock_data.index)
 
-        if workingdays is not None:
+            if workingdays is not None:
 
-            workingday_str = map(lambda x: str(x.date()), workingdays)
+                workingday_str = map(lambda x: str(x.date()), workingdays)
 
-            filtered_close = []
-            filtered_high = []
-            filtered_dates = []
-            filtered_volume = []
+                filtered_close = []
+                filtered_high = []
+                filtered_dates = []
+                filtered_volume = []
 
-            for dateindex in workingday_str:
+                for dateindex in workingday_str:
 
-                if dateindex in self.C.index:
-                    filtered_close.append(self.C[dateindex])
-                    filtered_high.append(self.H[dateindex])
-                    filtered_volume.append(self.V[dateindex])
-                    filtered_dates.append(workingdays[workingday_str.index(dateindex)])
+                    if dateindex in self.C.index:
+                        filtered_close.append(self.C[dateindex])
+                        filtered_high.append(self.H[dateindex])
+                        filtered_volume.append(self.V[dateindex])
+                        filtered_dates.append(workingdays[workingday_str.index(dateindex)])
 
-            self.dates = filtered_dates
-            self.C = pds.Series(filtered_close, index=self.dates)
-            self.H = pds.Series(filtered_high, index=self.dates)
-            self.V = pds.Series(filtered_volume, index=self.dates)
+                self.dates = filtered_dates
+                self.C = pds.Series(filtered_close, index=self.dates)
+                self.H = pds.Series(filtered_high, index=self.dates)
+                self.V = pds.Series(filtered_volume, index=self.dates)
+
+        elif source == 'bitfinex':
+
+            self.interval = interval
+
+            # Converting datetime to timestamp
+
+            self.epoch = dt.datetime(1970, 1, 1)
+            self.epochTS = self.epoch.timetuple()
+            self.epochTS = time.mktime(self.epochTS)
+
+            self.startTS = start
+            self.startTS = self.startTS.timetuple()
+            # Correcting for my timezone
+            self.startTS = int(time.mktime(self.startTS) - self.epochTS) * 1000
+
+            self.endTS = end
+            self.endTS = self.endTS.timetuple()
+            self.endTS = int(time.mktime(self.endTS) - self.epochTS) * 1000
+
+            # Structuring request's url
+            self.ticker = ticker
+            self.url = "https://api.bitfinex.com/v2/candles/trade:" + self.interval + ":t" + self.ticker + "/hist"
+            response = requests.request("GET", self.url,
+                                        params={'limit': 1000, 'start': int(self.startTS), 'end': int(self.endTS)})
+
+            # handling data
+            self.rawData = response.json()
+            self.cryptoData = pds.DataFrame(self.rawData)
+            self.cryptoData.columns = ['dates', 'Open', 'High', 'Low', 'Close', 'Volume']
+            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000))
+
+            self.C = self.cryptoData['Close']
+            self.H = self.cryptoData['High']
+            self.L = self.cryptoData['Low']
+            self.V = self.cryptoData['Volume']
+            self.O = self.cryptoData['Open']
+            self.dates = self.cryptoData['dates']
 
     def rsi_simples(self, order=14):
 
@@ -194,44 +235,44 @@ class Data:
 
         return pds.Series(y, index=self.dates), pds.Series(stdlist, index=self.dates)
 
-    def mme(self, order=7):
-
-        ''' Funcao que calcula a media movel e desvio padrao para N termos de uma serie '''
-
-        x = self.C.copy()
-        N = order
-        alpha = 2. / (N + 1)
-
-        y = []
-        stdlist = []
-        for ctr in range(len(x), -1, -1):
-
-            xlist = x[ctr - N:ctr]
-
-            if len(xlist) == 0:
-                break
-            else:
-                y.append(sum(xlist) / N)
-                stdlist.append(np.std(xlist))
-
-        # Para manter o tamanho!
-        for i in range(order - 1):
-            y.append(0.)
-            stdlist.append(0.)
-
-        y.reverse()
-        stdlist.reverse()
-
-        mma = y[N - 1]
-        mme = [mma]
-        x = x[N:]
-
-        for i in range(len(y[N:])):
-            mme.append(mme[-1] + (x[i] - mme[-1]) * alpha)
-
-        mme = [0 for i in range(N - 1)] + mme
-
-        return pds.Series(mme, index=self.dates)
+    # def mme(self, order=7):
+    #
+    #     ''' Funcao que calcula a media movel e desvio padrao para N termos de uma serie '''
+    #
+    #     x = self.C.copy()
+    #     N = order
+    #     alpha = 2. / (N + 1)
+    #
+    #     y = []
+    #     stdlist = []
+    #     for ctr in range(len(x), -1, -1):
+    #
+    #         xlist = x[ctr - N:ctr]
+    #
+    #         if len(xlist) == 0:
+    #             break
+    #         else:
+    #             y.append(sum(xlist) / N)
+    #             stdlist.append(np.std(xlist))
+    #
+    #     # Para manter o tamanho!
+    #     for i in range(order - 1):
+    #         y.append(0.)
+    #         stdlist.append(0.)
+    #
+    #     y.reverse()
+    #     stdlist.reverse()
+    #
+    #     mma = y[N - 1]
+    #     mme = [mma]
+    #     x = x[N:]
+    #
+    #     for i in range(len(y[N:])):
+    #         mme.append(mme[-1] + (x[i] - mme[-1]) * alpha)
+    #
+    #     mme = [0 for i in range(N - 1)] + mme
+    #
+    #     return pds.Series(mme, index=self.dates)
 
     def hv(self, order=14):
 
@@ -365,7 +406,7 @@ def VaR(slave, simulations=1000, risk = 0.05):
     return pds.Series(portfolioVaR, index = dates)
 
 
-def database_builder(tickerList, start_aq, end_aq, source='quandl'):
+def database_builder(tickerList, start_aq, end_aq, source='bitfinex'):
 
     database = {}
 
@@ -428,7 +469,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
     indicator_strings = ['OPEN', 'HIGH', 'CLOSE','LOW',
                          'VOLUME','LNR','IFR',
                          'IFRS', 'MMA', 'STD',
-                         'MME', 'HV', 'UBB',
+                          'HV', 'UBB',
                          'DBB', 'MMAD', 'MMAD2',
                          'SIGND2','TR','ATR']
 
