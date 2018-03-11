@@ -173,9 +173,7 @@ def str2rule(rulestr):
         return rule
 
 
-def execrule(rule, wm, ret_exec=False,ret_track=False):
-    
-    track = {}
+def execrule(rule, wm, ret_exec=False):
 
     if rule is None:
 
@@ -190,10 +188,6 @@ def execrule(rule, wm, ret_exec=False,ret_track=False):
         for eachKey in wm.keys():
 
             if eachKey in antecedente:
-                
-                if ret_track:
-                    
-                    track[eachKey] = wm[eachKey]
 
                 antecedente = antecedente.replace(" " + eachKey + " ", " " + repr(wm[eachKey]) + " ")
 
@@ -222,8 +216,6 @@ def execrule(rule, wm, ret_exec=False,ret_track=False):
 
             if ret_exec:
                 return wm, alrdy_exec
-            if ret_track:
-                return wm,track
             else:
                 return wm
 
@@ -249,23 +241,23 @@ def read_kb(location):
 
         line = line.replace("\n", "")
         line = line.upper()
-        
-        if line != "":
 
-            if line[0] == ':':
-    
-                line = line[1:]
-                line = line.replace(' ',"")
-                variables_references = line.split(',')
-                ret_vars = True
-    
-            else:
-                
-                    for eachSymb in symbs.keys():
-                        line = line.replace(eachSymb, symbs[eachSymb])
-    
-                    rule = str2rule(line)
-                    rules.append(rule)
+        if line[0] == ':':
+
+            line = line[1:]
+            line = line.replace(' ',"")
+            variables_references = line.split(',')
+            ret_vars = True
+
+        else:
+
+            if line != "":
+
+                for eachSymb in symbs.keys():
+                    line = line.replace(eachSymb, symbs[eachSymb])
+
+                rule = str2rule(line)
+                rules.append(rule)
 
     if ret_vars:
         return variables_references,rules

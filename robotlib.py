@@ -5,13 +5,12 @@ Created on Thu Oct 22 09:41:30 2015
 @author: Aluno - Joao
 """
 import tradex
-import datetime as dt
+import datetime
 import copy
 import risklib
 import math
 import pandas
 import numpy as np
-import random
 
 
 ######################################################
@@ -113,14 +112,14 @@ class SlaveTrader:
         self.stop_win = None
         self.stop_loss = None
 
-        self.operation_period = dt.timedelta(0)
+        self.operation_period = datetime.timedelta(0)
 
         # Operational varibles
 
-        self.init_period_date = None  # dt.datetime
-        self.end_period_date = None  # dt.datetime
+        self.init_period_date = None  # datetime
+        self.end_period_date = None  # datetime
         self.init_period_cash = None
-        self.last_operational_date = dt.datetime.min
+        self.last_operational_date = None
 
         ######################################################
 
@@ -133,7 +132,6 @@ class SlaveTrader:
         # OptimalF return_dictionary simulation variable
 
         self.rd_of = {}
-        self.flog_of = {}
     
     def get_strategy_struct(self):
         
@@ -171,10 +169,9 @@ class SlaveTrader:
             if eachKey not in self.portfolio.keys():
 
                 self.portfolio[eachKey] = []
-                self.flog_of[eachKey] = []
                 
-                self.buy_cause[eachKey] = []
-                self.sell_cause[eachKey] = []
+                self.buy_cause[eachKey] = ''
+                self.sell_cause[eachKey] = ''
 
                 self.buy_intention[eachKey] = 0
 
@@ -255,10 +252,7 @@ class SlaveTrader:
             workmemory[ticker]['BOUGHT_PRICE'] = bought_price
             workmemory[ticker]['TOTAL_CASH'] = self.total_cash(workmemory)
             workmemory[ticker]["LAST_OP"] = self.operation_log[ticker][-1]['OPERATION']
-            
-            r = random.random()
-            workmemory[ticker]['RAND'] = r
-            
+
         # Adicionar MAX_CASH_SO_FAR?
 
         return workmemory
@@ -285,7 +279,8 @@ class SlaveTrader:
 
         workmemory[ticker]["BUY"] = False
         workmemory[ticker]["SELL"] = False
-        self.buy_cause[ticker] = []
+        self.buy_cause[ticker] = ''
+        self.sell_cause[ticker] = ''
         
         buy_flag = False
         sell_flag = False
@@ -293,15 +288,15 @@ class SlaveTrader:
         if not workmemory[ticker]['INVALID_DATE']:
 
             for eachRule in self.strategy:
-                workmemory[ticker],track = tradex.execrule(eachRule, workmemory[ticker],ret_track = True)
+                workmemory[ticker] = tradex.execrule(eachRule, workmemory[ticker])
                 
                 if (buy_flag == False) and (workmemory[ticker]['BUY'] == True):
                     buy_flag = True
-                    self.buy_cause[ticker] = [eachRule[0],track]
+                    self.buy_cause[ticker] = eachRule[0]
                     
                 if (sell_flag == False) and (workmemory[ticker]['SELL'] == True):
                     sell_flag = True
-                    self.sell_cause[ticker].append([eachRule[0],track])
+                    self.sell_cause[ticker] = eachRule[0]
         else:
 
             pass
@@ -409,7 +404,7 @@ class SlaveTrader:
 
                     if self.buy_intention[ticker] == 1:
 
-                        qtty = int(risk_management(cash_per_stock, 0.1, 0.05) / 100.0) * 100
+                        qtty = int(risk_management(cash_per_stock, 0.1, 2 * current_workmemory['STD7']) / 100.0) * 100
 
                         if qtty <= current_workmemory['VOLUME']:
 
@@ -465,10 +460,10 @@ class SlaveTrader:
 
                 if self.rd_of == {}:
 
-                    dict_size = 20
+                    dict_size = 30
 
-                    sim_aq_init_date = current_date - dt.timedelta((10 * dict_size) + 30)
-                    sim_init_date = current_date - dt.timedelta(10 * dict_size)
+                    sim_aq_init_date = current_date - datetime.timedelta((10 * dict_size) + 30)
+                    sim_init_date = current_date - datetime.timedelta(10 * dict_size)
 
                     print "Simulating trader for optimal_f function"
 
@@ -477,8 +472,8 @@ class SlaveTrader:
                                                                 (sim_init_date, current_date), risklib.bet_all,
                                                                 brokerfee=self.broker_fee, leverage=self.leverage,
                                                                 interest=self.interest,
-                                                                show_statistics=False)
-                    print 'Trader simulated.'
+                                                                plot_cashflow=False)
+
                     rd = sim_slave.return_dictionary(log_return=True, max_ret=dict_size)
 
                     self.rd_of = rd
@@ -508,8 +503,6 @@ class SlaveTrader:
                         current_workmemory = workmemory[ticker]
 
                         if self.buy_intention[ticker] == 1:
-                            
-                            self.flog_of[ticker].append(f[f_index])
 
                             allocated_cash = cash_per_stock * f[f_index]
 
@@ -541,17 +534,14 @@ class SlaveTrader:
                 sell_qtty = 0
                 sell_return = 0.
                 sell_logreturn = 0.
-                sell_exposition_days = 0.
-                
+
                 for eachOrder in self.last_order[eachStock]['SELL']:
-                    
                     stock_data_index = self.portfolio[eachStock].index(eachOrder)
 
                     sell_qtty += eachOrder['VOLUME']
                     sell_return += eachOrder['VOLUME'] * (current_workmemory['PRICE'] / eachOrder['PRICE'])
                     sell_logreturn += eachOrder['VOLUME'] * math.log(current_workmemory['PRICE'] / eachOrder['PRICE'])
-                    sell_exposition_days += (self.wd[eachStock].index(current_date) - self.wd[eachStock].index(eachOrder['DATE']))
-                    
+
                     self.portfolio[eachStock][stock_data_index] = None
 
                 self.cash += current_workmemory['PRICE'] * sell_qtty
@@ -566,8 +556,7 @@ class SlaveTrader:
                        'PRICE': current_workmemory['PRICE'],
                        'SPECIFICATION': self.last_order[eachStock]['SELL'], 'RETURN': sell_return,
                        'LOGRETURN': sell_logreturn,
-                       'INFERENCE':inference,
-                       'EXPOSITION':sell_exposition_days}
+                       'INFERENCE':inference}
 
                 self.operation_log[eachStock].append(log)
 
@@ -614,7 +603,7 @@ class SlaveTrader:
 
         else:
 
-            if self.operation_period != dt.timedelta(0):
+            if self.operation_period != datetime.timedelta(0):
 
                 if current_date > self.end_period_date:
 
@@ -636,7 +625,6 @@ class SlaveTrader:
 
                 workmemory = self.clear_facts(workmemory, eachStock)
                 stockData = self.portfolio[eachStock]
-                self.sell_cause[eachStock] = []
 
                 if stockData == []:  # Output -> Only BUY
 
@@ -695,7 +683,7 @@ class SlaveTrader:
         for eachKey in self.portfolio.keys():
 
             for eachData in self.portfolio[eachKey]:
-                total_cash += eachData['VOLUME'] * workmemory[eachKey]['PRICE']
+                total_cash += eachData['VOLUME'] * workmemory[eachKey]['CLOSE']
 
         return total_cash
 
@@ -706,7 +694,7 @@ class SlaveTrader:
         for eachKey in self.portfolio.keys():
 
             for eachData in self.portfolio[eachKey]:
-                cip += eachData['VOLUME'] * workmemory[eachKey]['PRICE']
+                cip += eachData['VOLUME'] * workmemory[eachKey]['CLOSE']
 
         return cip
 
@@ -725,69 +713,18 @@ class SlaveTrader:
 
         return resumedport
 
-    def win_rate(self,briefedPortfolio = True):
-        
-        win_dict = {}
-        totalSell = []
+    def win_rate(self):
 
-        
-        if self.operation_log > 1:
-            
-            for eachStock in self.operation_log:
-                
-                logList = []
-    
-                for eachOp in range(len(self.operation_log[eachStock])):
-                    
-                    if 'LOGRETURN' not in self.operation_log[eachStock][eachOp]:
-                        pass
-                    
-                    else:
-                        logList.append(self.operation_log[eachStock][eachOp]['LOGRETURN'])
-    
-                logList = np.array(logList) +  1
-    
-                soldCount = float(len(logList))
-                totalSell.append(soldCount)
-                positive = copy.deepcopy(logList)
-                
-                if soldCount == 0: 
-                    win_dict[eachStock] = 'no trade'
-                else:
-                    
-                    
-                    positive[positive > 1.] = 1.
-        
-                    
-                    win   = list(positive).count(1.)/soldCount
-        
-                    
-                    win_dict[eachStock] = win
-                    
-            if briefedPortfolio is True:
-                
-                mean = 0.
-                count = 0.
-                
-                for value in win_dict.values():
-                    
-                    if value == 'no trade':
-                        pass
-                    else:
-                        mean += value
-                        count += 1.
-                
-                if count == 0.:
-                    return 'no trade.'
-                else:
-                    return mean/count
-    
-            else:
+        self.calculate_gain_count()
 
-                return win_dict
-        
+        if self.sell_count != 0.:
+
+            return self.gain_count / self.sell_count
+
         else:
-            
+
+            print "No sells during the transaction period. 0 returned"
+
             return 0.
 
     def max_drowndown(self, in_cash=False):
@@ -925,71 +862,9 @@ class SlaveTrader:
 
         self.gain_count = gc
         return gc
-    
-    def vince(self,max_ret = 50):
 
-        Stats = {}
-        for eachStock in self.operation_log.keys():             
-            trades      = []
+    def expected_value(self):
 
-            for eachOp in range(len(self.operation_log[eachStock])):
-                    
-                if 'LOGRETURN' not in self.operation_log[eachStock][eachOp]:
-                    pass
-                
-                else:
-                    trades.append(self.operation_log[eachStock][eachOp]['LOGRETURN'])
-           
-            trades  = np.array(trades)
-            max_ret = len(trades)
-            trades += 1
-
-            if max_ret == 0.:
-                
-                Stats[eachStock] = {'AHPR': 0.,
-                                'GATP': 0.,
-                                'GATN': 0.,
-                                'PayOff': 0.,
-                                'SD': 0., 
-                                'ETWR': 0.,
-                                'TWR': 0.}
-                return Stats
-            else:
-            
-                positive,negative = copy.deepcopy(trades),copy.deepcopy(trades)
-    
-                positive[positive > 1.] = 1.
-                negative[negative < 1.] = 1.
-                
-                win  = list(positive).count(1.)
-                loss = list(negative).count(1.)
-                
-                if win == max_ret:
-                    GATPositive = 0.
-                else:
-                    GATPositive = np.prod(negative)**(1./(max_ret-loss))
-                if loss == max_ret:
-                    GATNegative = 0.
-                else:
-                    GATNegative = np.prod(positive)**(1./(max_ret-win))
-                print win,loss,GATPositive,GATNegative
-                if GATPositive and GATNegative == 0:
-                    PayOff = 0.
-                else:
-                    PayOff = GATPositive/GATNegative
-                
-                Stats[eachStock] = {'AHPR': np.mean(trades[-max_ret:]),
-                                    'GATP': GATPositive,
-                                    'GATN': GATNegative,
-                                    'PayOff': PayOff,
-                                    'SD': np.std(trades[-max_ret:]), 
-                                    'ETWR': (np.mean(trades[-max_ret:])**2 - np.std(trades[-max_ret:])**2)**(1./len(trades[-max_ret:])),
-                                    'TWR': np.prod(trades[-max_ret:]) }
-            
-            return Stats
-
-    def expected_value(self,briefedPortfolio = True):
-        ME = {}
         if self.sell_count == 0:
 
             print " No sells during the transaction period. 0 returned"
@@ -998,80 +873,10 @@ class SlaveTrader:
 
         else:
 
-            weight    = np.array([np.exp(-i) for i in np.arange(0.5,1.,0.5/len(self.operation_log.keys()))])
-            boxes     = np.round(np.arange(10,50,40./len(self.operation_log.keys())))
-            
-            for eachStock in self.operation_log.keys():
-             
-                trades      = []
-                partialME   = []
-                
-                for eachOp in range(len(self.operation_log[eachStock])):
-                    
-                    if 'LOGRETURN' not in self.operation_log[eachStock][eachOp]:
-                        pass
-                    
-                    else:
-                        trades.append(self.operation_log[eachStock][eachOp]['LOGRETURN'])
+            self.calculate_gain_count()
 
-                trades   = np.array(trades) +  1
-                positive,negative = copy.deepcopy(trades),copy.deepcopy(trades)
+            return ((1. + self.payoff()) * (self.win_rate())) - 1.
 
-                positive[positive > 1.] = 1.
-                negative[negative < 1.] = 1.
-
-                stopFlag = len(trades) > boxes
-
-                if False in stopFlag:
-                    tradeBox = boxes[list(stopFlag).index(False):]
-
-                elif stopFlag[0] is False:
-                    tradeBox = len(trades)                    
-                
-                else:
-                    tradeBox = boxes
-                    
-                tradeBox = list(tradeBox) 
-                for boxSize in tradeBox:
-                    
-                    self.upTrades, self.downTrades = copy.deepcopy(trades[-boxSize:]),copy.deepcopy(trades[-boxSize:])
-                    
-                    self.upTrades[self.upTrades < 1.] = 1.
-                    self.expPositive = list(self.upTrades).count(1.)
-
-                    self.downTrades[self.downTrades > 1.] = 1.
-                    self.expNegative = list(self.downTrades).count(1.)
-
-                    if self.expPositive - len(self.upTrades) == 0. :
-                        self.GATPositive = 0.
-                    else:
-                        self.GATPositive = np.prod(self.upTrades)**(1./(len(self.upTrades) - self.expPositive))
-
-                    if self.expNegative - len(self.downTrades) == 0.:
-                        self.GATNegative = 0.
-                    else:                                
-                        self.GATNegative = np.prod(self.downTrades)**(1./(len(self.downTrades)- self.expNegative))
-                        
-                    
-                    win              = boxSize - self.expPositive
-                    loss             = boxSize - self.expNegative
-                    
-                    partialME.append(self.GATPositive*(win/float(boxSize)) - self.GATNegative*((loss/float(boxSize))))
-                    
-                    
-                partialME       = np.array(partialME)
-                if len(partialME) > 1:
-                    weightedAverage = np.average(partialME)
-                else:
-                    weightedAverage = partialME
-                ME[eachStock]   = weightedAverage
-                
-        if briefedPortfolio is not True:
-                
-            return ME 
-        else:
-            return np.prod(ME.values())
-            
     def recovery_factor(self):
 
         gain = (self.total_cash_log[-1] - self.total_initcash)
@@ -1102,7 +907,7 @@ class SlaveTrader:
 
             stockreturn = [0 for i in range(max_ret)]
             stockinvest = [0 for i in range(max_ret)]
-            dates = [dt.datetime(1677, 9, 23, 0, 0) for i in range(max_ret)]
+            dates = [datetime.datetime(1677, 9, 23, 0, 0) for i in range(max_ret)]
 
             index = max_ret
 
@@ -1111,7 +916,7 @@ class SlaveTrader:
 
             for eachOp in operations:
 
-                if type(from_date_dict) == dict and type(eachOp['DATE']) == dt.datetime:
+                if type(from_date_dict) == dict and type(eachOp['DATE']) == datetime.datetime:
 
                     from_date = from_date_dict[eachKey]
 
@@ -1201,39 +1006,38 @@ class SlaveTrader:
 
 def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisition_range, operation_range,
                                     risk_function,
-                                    source='bitfinex',
+                                    source='google',
                                     brokerfee=14.9,
                                     leverage=1.,
                                     interest=1.19,
                                     stop_win=None,
                                     stop_loss=None,
                                     operation_period=0,
-                                    show_statistics=True,
-                                    show_dates=False):
+                                    plot_cashflow=True):
     import data_handler
-    import datetime as dt
+    import datetime
     import tradex
     import matplotlib.pyplot as plt
 
-    if type(acquisition_range[0]) == dt.datetime:
+    if type(acquisition_range[0]) == datetime.datetime:
         start_aq = acquisition_range[0]
     else:
-        start_aq = dt.datetime(*acquisition_range[0])
+        start_aq = datetime.datetime(*acquisition_range[0])
 
-    if type(acquisition_range[1]) == dt.datetime:
+    if type(acquisition_range[1]) == datetime.datetime:
         end_aq = acquisition_range[1]
     else:
-        end_aq = dt.datetime(*acquisition_range[1])
+        end_aq = datetime.datetime(*acquisition_range[1])
 
-    if type(operation_range[0]) == dt.datetime:
+    if type(operation_range[0]) == datetime.datetime:
         start_op = operation_range[0]
     else:
-        start_op = dt.datetime(*operation_range[0])
+        start_op = datetime.datetime(*operation_range[0])
 
-    if type(operation_range[1]) == dt.datetime:
+    if type(operation_range[1]) == datetime.datetime:
         end_op = operation_range[1]
     else:
-        end_op = dt.datetime(*operation_range[1])
+        end_op = datetime.datetime(*operation_range[1])
 
     ############################################################################################################
     if type(strategy_or_location) == str:
@@ -1244,12 +1048,11 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     ############################################################################################################
 
     ############################################################################################################
-
-    print type(start_aq), start_aq, type(end_aq), end_aq
-
     database = data_handler.database_builder(stocks, start_aq, end_aq, source=source)
     indicators, working_days = data_handler.calculate_indicators(stocks, database,indicator_filter = strategy_struct[0])
+    
     print 'Indicators calculated.'
+
     workmemory = data_handler.workmemory_builder(stocks)
     ############################################################################################################
 
@@ -1262,7 +1065,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     trader.set_interest(interest)
     trader.set_stoploss(stop_loss)
     trader.set_stopwin(stop_win)
-    trader.set_operation_period(dt.timedelta(operation_period))
+    trader.set_operation_period(datetime.timedelta(operation_period))
 
     ############################################################################################################
 
@@ -1270,7 +1073,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     day_list = [start_op]
 
     while not stop_flag:
-        next_day = day_list[-1] + dt.timedelta(days=1)
+        next_day = day_list[-1] + datetime.timedelta(days=1)
         day_list.append(next_day)
 
         if next_day >= end_op:
@@ -1282,9 +1085,9 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     print 'Simulating ... please wait.'
     for current_date in day_list:
         ############################################################################################################
-        if show_dates:
+        if plot_cashflow:
             print 'Simulating date: ', current_date
-        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date,indicator_filter = strategy_struct[0])  # Updates WM
+        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date)  # Updates WM
 
         ############################################################################################################
 
@@ -1292,7 +1095,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
         ############################################################################################################
 
-    if show_statistics:
+    if plot_cashflow:
 
         print '=' * 50
         print ''
@@ -1313,7 +1116,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
         print ""
         print "Medidas estatisticas: "
-        print "Taxa de acerto: ", trader.win_rate(briefedPortfolio = True)
+        print "Taxa de acerto: ", trader.win_rate()
         print "Expectativa Matematica: ", trader.expected_value()
         print "Recovery Factor: ", trader.recovery_factor()
         print "Max DD: ", trader.max_drowndown()
@@ -1323,7 +1126,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
         plt.interactive(False)
         plt.figure()
-        plt.plot(range(len(trader.total_cash_log)),trader.total_cash_log, 'b',range(len(trader.total_cash_log)),trader.total_cash_log,'k')
+        plt.plot(trader.total_cash_log, 'b')
         plt.title(strategy_or_location + ' total cash.')
         plt.xlabel('Dias uteis')
         plt.ylabel('Unidade monetaria')
@@ -1336,7 +1139,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
         plt.xlabel('Dias uteis')
         plt.ylabel('Unidade monetaria')
-        # plt.show()
+        plt.show()
 
     else:
         pass
@@ -1356,8 +1159,8 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
     import tradex
     import matplotlib.pyplot as plt
 
-    start_op = dt.datetime(*operation_range[0])
-    end_op = dt.datetime(*operation_range[1])
+    start_op = datetime.datetime(*operation_range[0])
+    end_op = datetime.datetime(*operation_range[1])
 
     ############################################################################################################
     if type(database_or_location) == str:
@@ -1389,7 +1192,7 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
     day_list = [start_op]
 
     while stop_flag == False:
-        next_day = day_list[-1] + dt.timedelta(days=1)
+        next_day = day_list[-1] + datetime.timedelta(days=1)
         day_list.append(next_day)
 
         if next_day >= end_op:
@@ -1429,7 +1232,7 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
 
     print ""
     print "Medidas estatisticas: "
-    print "Taxa de acerto: ", trader.win_rate(brifedPortfolio = True)
+    print "Taxa de acerto: ", trader.win_rate()
     print "Expectativa Matematica: ", trader.expected_value()
     print "Recovery Factor: ", trader.recovery_factor()
     print "Max DD: ", trader.max_drowndown()
@@ -1451,7 +1254,7 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
 
     plt.xlabel('Dias uteis')
     plt.ylabel('Unidade monetaria')
-    # plt.show()
+    plt.show()
 
     return trader
 
