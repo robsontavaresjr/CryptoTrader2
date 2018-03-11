@@ -3,60 +3,112 @@
 import datetime as dt
 import numpy as np
 import pandas as pds
-import pandas.io.data as pd
-
+import pandas_datareader.data as pd
+import time
+import requests
+import pandas_datareader.data as web
 
 ############################################################################################################
 
 
 class Data:
-    
-    def __init__(self, ticker, start, end, source='google', workingdays=None):
-        
-        if type(start) == dt.datetime:
-            self.start = start
-        else:
-            self.start = dt.datetime(*start)
-            
-        if type(end) == dt.datetime:
-            self.end = end
-        else:
-            self.end = dt.datetime(*end)
-            
-        self.ticker = ticker
-        self.source = source
-        self.order = None
+    def __init__(self, ticker, start, end, source='bitfinex', interval = '1D', workingdays=None):
 
-        stock_data = pd.DataReader(self.ticker, self.source, start=self.start, end=self.end)
+        if source == 'quandl':
 
-        self.C = stock_data['Close']
-        self.H = stock_data['High']
-        self.L = stock_data['Low']
-        self.V = stock_data['Volume']
-        self.O = stock_data['Open']
-        self.dates = map(lambda t: t.to_datetime(), stock_data.index)
+            if type(start) == dt.datetime:
+                self.start = str(start).split(' ')[0]
+            elif type(start) == str:
+                self.start = start
+            else:
+                self.start = str(dt.datetime(*start).date())
 
-        if workingdays is not None:
+            if type(end) == dt.datetime:
+                self.end = str(end).split(' ')[0]
+            elif type(end) == str:
+                self.end = end
+            else:
+                self.end = str(dt.datetime(*end).date())
 
-            workingday_str = map(lambda x: str(x.date()), workingdays)
+            self.ticker = ticker
+            self.source = source
+            self.order = None
 
-            filtered_close = []
-            filtered_high = []
-            filtered_dates = []
-            filtered_volume = []
 
-            for dateindex in workingday_str:
+            stock_data = 'WIKI/' + self.ticker
+            stock_data = web.DataReader(stock_data, self.source, self.start, self.end)
 
-                if dateindex in self.C.index:
-                    filtered_close.append(self.C[dateindex])
-                    filtered_high.append(self.H[dateindex])
-                    filtered_volume.append(self.V[dateindex])
-                    filtered_dates.append(workingdays[workingday_str.index(dateindex)])
+            self.C = stock_data['Close']
+            self.H = stock_data['High']
+            self.L = stock_data['Low']
+            self.V = stock_data['Volume']
+            self.O = stock_data['Open']
+            self.dates = map(lambda t: t.to_datetime(), stock_data.index)
 
-            self.dates = filtered_dates
-            self.C = pds.Series(filtered_close, index=self.dates)
-            self.H = pds.Series(filtered_high, index=self.dates)
-            self.V = pds.Series(filtered_volume, index=self.dates)
+            if workingdays is not None:
+
+                workingday_str = map(lambda x: str(x.date()), workingdays)
+
+                filtered_close = []
+                filtered_high = []
+                filtered_dates = []
+                filtered_volume = []
+
+                for dateindex in workingday_str:
+
+                    if dateindex in self.C.index:
+                        filtered_close.append(self.C[dateindex])
+                        filtered_high.append(self.H[dateindex])
+                        filtered_volume.append(self.V[dateindex])
+                        filtered_dates.append(workingdays[workingday_str.index(dateindex)])
+
+                self.dates = filtered_dates
+                self.C = pds.Series(filtered_close, index=self.dates)
+                self.H = pds.Series(filtered_high, index=self.dates)
+                self.V = pds.Series(filtered_volume, index=self.dates)
+
+        elif source == 'bitfinex':
+
+            self.interval = interval
+
+            # Converting datetime to timestamp
+
+            self.epoch = dt.datetime(1970, 1, 1)
+            self.epochTS = self.epoch.timetuple()
+            self.epochTS = time.mktime(self.epochTS)
+
+            self.startTS = start
+            self.startTS = self.startTS.timetuple()
+            # Correcting for my timezone
+            self.startTS = int(time.mktime(self.startTS) - self.epochTS) * 1000
+
+            self.endTS = end
+            self.endTS = self.endTS.timetuple()
+            self.endTS = int(time.mktime(self.endTS) - self.epochTS) * 1000
+
+            # Structuring request's url
+            self.ticker = ticker
+            self.url = "https://api.bitfinex.com/v2/candles/trade:" + self.interval + ":t" + self.ticker + "/hist"
+            response = requests.request("GET", self.url,
+                                        params={'limit': 1000, 'start': int(self.startTS), 'end': int(self.endTS)})
+
+            # handling data
+            self.rawData = response.json()
+            self.cryptoData = pds.DataFrame(self.rawData)
+            self.cryptoData.columns = ['dates', 'Open', 'High', 'Low', 'Close', 'Volume']
+            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000).date())
+            self.cryptoData = self.cryptoData.sort_values("dates", ascending=True)
+            self.cryptoData.reset_index(inplace=True)
+
+            dates = np.array(map(lambda date: dt.datetime.combine(date, dt.datetime.min.time()), self.cryptoData['dates'].values))
+            self.cryptoData.set_index(dates, inplace=True)
+
+            self.C = self.cryptoData['Close']
+            self.H = self.cryptoData['High']
+            self.L = self.cryptoData['Low']
+            self.V = self.cryptoData['Volume']
+            self.O = self.cryptoData['Open']
+            self.dates = dates
 
     def rsi_simples(self, order=14):
 
@@ -189,44 +241,44 @@ class Data:
 
         return pds.Series(y, index=self.dates), pds.Series(stdlist, index=self.dates)
 
-    def mme(self, order=7):
-
-        ''' Funcao que calcula a media movel e desvio padrao para N termos de uma serie '''
-
-        x = self.C.copy()
-        N = order
-        alpha = 2. / (N + 1)
-
-        y = []
-        stdlist = []
-        for ctr in range(len(x), -1, -1):
-
-            xlist = x[ctr - N:ctr]
-
-            if len(xlist) == 0:
-                break
-            else:
-                y.append(sum(xlist) / N)
-                stdlist.append(np.std(xlist))
-
-        # Para manter o tamanho!
-        for i in range(order - 1):
-            y.append(0.)
-            stdlist.append(0.)
-
-        y.reverse()
-        stdlist.reverse()
-
-        mma = y[N - 1]
-        mme = [mma]
-        x = x[N:]
-
-        for i in range(len(y[N:])):
-            mme.append(mme[-1] + (x[i] - mme[-1]) * alpha)
-
-        mme = [0 for i in range(N - 1)] + mme
-
-        return pds.Series(mme, index=self.dates)
+    # def mme(self, order=7):
+    #
+    #     ''' Funcao que calcula a media movel e desvio padrao para N termos de uma serie '''
+    #
+    #     x = self.C.copy()
+    #     N = order
+    #     alpha = 2. / (N + 1)
+    #
+    #     y = []
+    #     stdlist = []
+    #     for ctr in range(len(x), -1, -1):
+    #
+    #         xlist = x[ctr - N:ctr]
+    #
+    #         if len(xlist) == 0:
+    #             break
+    #         else:
+    #             y.append(sum(xlist) / N)
+    #             stdlist.append(np.std(xlist))
+    #
+    #     # Para manter o tamanho!
+    #     for i in range(order - 1):
+    #         y.append(0.)
+    #         stdlist.append(0.)
+    #
+    #     y.reverse()
+    #     stdlist.reverse()
+    #
+    #     mma = y[N - 1]
+    #     mme = [mma]
+    #     x = x[N:]
+    #
+    #     for i in range(len(y[N:])):
+    #         mme.append(mme[-1] + (x[i] - mme[-1]) * alpha)
+    #
+    #     mme = [0 for i in range(N - 1)] + mme
+    #
+    #     return pds.Series(mme, index=self.dates)
 
     def hv(self, order=14):
 
@@ -269,9 +321,98 @@ class Data:
         stdlist.reverse()
 
         return pds.Series(y, index=self.dates), pds.Series(stdlist, index=self.dates)
+    
+    def true_range(self):
+        
+        c = self.C.copy()
+        h = self.H.copy()
+        l = self.L.copy()
+        
+        p1 = list(h - l)
+        
+        p2 = [0.]
+        p3 = [0.]
+        for i in range(1,len(c)):
+            p2.append(abs(h[i] - c[i-1]))
+            p3.append(abs(l[i] - c[i-1]))
+        
+        TR = []
+        for i in range(len(c)):
+            m = max(p1[i],p2[i],p3[i])
+            TR.append(m)
+        
+        return pds.Series(TR,index = c.index)
+    
+    def average_true_range(self,order = 14):
+        
+        atr = [0. for k in range(order)]
+        
+        TR = self.true_range()
+        
+        first_atr = np.mean(TR[0:order])
+        
+        atr.append(first_atr)
+        
+        for i in range(order+1,len(TR)):
+            
+            c_atr = ((atr[i-1] * (order-1)) + TR[i])/order
+            atr.append(c_atr)
+        
+        return pds.Series(atr,index = TR.index)
+        
+        
+        
+        
+       
+def VaR(slave, simulations=1000, risk = 0.05):
+
+    import numpy.linalg as npa
+
+    stocksLen = len(slave.database.keys())
+
+    close = [np.array(slave.database[i]['CLOSE']) for i in slave.database.keys()]
+    close = np.vstack(close).reshape([len(close[0]), stocksLen])
+    dates = slave.database[i]['CLOSE'].index
+
+    n = 100
+
+    for ctr in range(len(close), -1, -1):
+
+        closeList = close[ctr - n:ctr]
+        
+
+        if len(closeList) == 0:
+            break
+        else:
+
+            correlationMatrix = np.corrcoef(closeList.T)
+            eigVal,eigVec     = npa.eig(correlationMatrix)
+
+            portfolioVaR = []
+            MCR          = []
+
+            for iteration in range(simulations):
+
+                pca = np.transpose(eigVec).dot(eigVal**0.5)
+                pca = np.random.rand(n, stocksLen).dot(pca)
+                
+
+                MCR += list(pca)
+
+            MCR.sort()
+            portfolioVaR.append(MCR[int(risk*(simulations*n*stocksLen))])
+            del MCR
+
+    # Para manter o tamanho!
+    for i in range(n - 1):
+        portfolioVaR.append(0.)
+
+    portfolioVaR.reverse()
+    return portfolioVaR
+    return pds.Series(portfolioVaR, index = dates)
 
 
-def database_builder(tickerList, start_aq, end_aq, source='google'):
+def database_builder(tickerList, start_aq, end_aq, source='bitfinex'):
 
     database = {}
 
@@ -331,12 +472,12 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
     indicators = {}
     working_days = {}
-    indicator_strings = ['OPEN','HIGH','CLOSE',
+    indicator_strings = ['OPEN', 'HIGH', 'CLOSE','LOW',
                          'VOLUME','LNR','IFR',
                          'IFRS', 'MMA', 'STD',
-                         'MME', 'HV', 'UBB',
+                          'HV', 'UBB',
                          'DBB', 'MMAD', 'MMAD2',
-                         'SIGND2']
+                         'SIGND2','TR','ATR']
 
     if indicator_filter == []:
         filter_ = zip(indicator_strings,['all']*len(indicator_strings))
@@ -345,16 +486,16 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
         for eachindicator in indicator_filter:
             tokens = eachindicator.split('_')
             if len(tokens) == 3:
-                t,i,o = tokens
+                t, i, o = tokens
                 o = int(o)
             elif len(tokens) == 2:
-                t,i = tokens
+                t, i = tokens
                 o = 0
             else:
                 i = tokens[0]
                 o = 0
             if i in indicator_strings:
-                filter_.append([i,o])
+                filter_.append([i, o])
 
     for eachTicker in tickerList:
 
@@ -362,7 +503,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
         stock_data = database[eachTicker]
         
-        periods = [2,7,50]
+        periods = [2, 7, 20, 50]
 
         for ind_ord in filter_:
 
@@ -417,7 +558,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
                             db_ind['SIGNMMAD2' + '_' + str(i)] = md2sign
                     else:
 
-                        mma,std = stock_data.mma(order)
+                        mma, std = stock_data.mma(order)
 
                         if indicator in ('MMA','STD'):
 
@@ -454,9 +595,17 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
                             db_ind[indicator + '_' + str(i)] = stock_data.hv(i)
                     else:
                         db_ind[indicator + '_' + str(order)] = stock_data.hv(order)
+                
+                if indicator == 'ATR':
+
+                    if order == 'all':
+                        for i in periods:
+                            db_ind[indicator + '_' + str(i)] = stock_data.average_true_range(i)
+                    else:
+                        db_ind[indicator + '_' + str(order)] = stock_data.average_true_range(order)
 
                 if indicator == 'OPEN':
-
+                    
                     db_ind[indicator] = stock_data.O
 
                 if indicator == 'HIGH':
@@ -478,7 +627,12 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
                 if indicator == 'LNR':
 
                     db_ind[indicator] = stock_data.ln_return()
+                    
+                if indicator == 'TR':
 
+                    db_ind[indicator] = stock_data.true_range()
+                
+        db_ind['CLOSE'] = stock_data.C
         indicators[eachTicker] = db_ind
         working_days[eachTicker] = stock_data.dates
 
@@ -486,46 +640,102 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
 
 ############################################################################################################
+def date_stringify(dateObj):
+    if type(dateObj) == np.datetime64:
+        pydt = dt.datetime.strptime(str(dateObj), "%Y-%m-%dT%H:%M:%S.%f")
+    else:
+        pydt = dateObj
+    return pydt.strftime("%Y-%m-%d")
 
+def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
-def workmemory_feeder(wm, slave, current_date):
+    period_indicator = []
+    for indicator in indicator_filter:
+
+        tokens = indicator.split('_')
+
+        if len(tokens) == 1:
+
+            period_indicator.append(tokens[0])
+
+        elif len(tokens) == 2:
+
+            if tokens[0] == 'C':
+                index = 0
+            else:
+                index = int(tokens[0][1:])
+
+            period_indicator.append([index,tokens[0],tokens[1]])
+
+        elif len(tokens) == 3:
+
+            if tokens[0] == 'C':
+                index = 0
+            else:
+                index = int(tokens[0][1:])
+
+            period_indicator.append([index,tokens[0],tokens[1]+'_'+tokens[2]])
 
     for eachTicker in slave.portfolio.keys():
 
-        if current_date in slave.wd[eachTicker]:
+        feeder = slave.database[eachTicker]
 
-            daystr = str(current_date.date())
+        if np.isin(current_date, slave.wd[eachTicker]).any():
 
-            prev_day = slave.wd[eachTicker][slave.wd[eachTicker].index(current_date) - 1]
+            daystr = date_stringify(current_date)
 
-            prev_daystr = str(prev_day.date())
+            where = np.where(slave.wd[eachTicker] == current_date)[0][0]
+            prev_day = slave.wd[eachTicker][where - 1]
+            prev_daystr = date_stringify(prev_day)
 
-            two_prev_day = slave.wd[eachTicker][slave.wd[eachTicker].index(current_date) - 2]
-            two_prev_daystr = str(two_prev_day.date())
+            two_prev_day = slave.wd[eachTicker][where - 2]
+            two_prev_daystr = date_stringify(two_prev_day)
 
-            feeder = slave.database[eachTicker]
+            if indicator_filter != []:
 
-            for eachKey in feeder.keys():
-                wm[eachTicker][eachKey] = feeder[eachKey][daystr]
+                for key in period_indicator:
 
-            wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][prev_daystr], feeder['HIGH'][two_prev_daystr])
-            wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][prev_daystr], feeder['CLOSE'][two_prev_daystr])
+                    if type(key) == str:
+
+                        print feeder[key]
+                        wm[eachTicker][key] = feeder[key][daystr]
+
+                    elif type(key) == list:
+
+                        index = key[0]
+                        wmkey = key[1]+'_'+key[2]
+
+                        n_day = slave.wd[eachTicker][where - index]
+                        n_day_str = date_stringify(n_day)
+
+                        wm[eachTicker][wmkey] = feeder[key[2]][n_day_str]
+                        
+            else:
+
+                for eachKey in feeder.keys():
+                    wm[eachTicker][eachKey] = feeder[eachKey][daystr]
+
+                wm[eachTicker]['L1_OPEN'] = feeder['OPEN'][prev_daystr]
+                wm[eachTicker]['L2_OPEN'] = feeder['OPEN'][two_prev_daystr]
+
+                wm[eachTicker]['L1_CLOSE'] = feeder['CLOSE'][prev_daystr]
+                wm[eachTicker]['L2_CLOSE'] = feeder['CLOSE'][two_prev_daystr]
+
+            if 'HIGH' in feeder.keys():
+#                wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][prev_daystr], feeder['HIGH'][two_prev_daystr])
+                wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][daystr], feeder['HIGH'][prev_daystr])
+                wm[eachTicker]['LOWM2'] = min(feeder['LOW'][daystr], feeder['LOW'][prev_daystr])
+            if 'CLOSE' in feeder.keys():
+#                wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][prev_daystr], feeder['CLOSE'][two_prev_daystr])
+                wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][daystr], feeder['CLOSE'][prev_daystr])
+                
             wm[eachTicker]['BUY'] = None
             wm[eachTicker]['SELL'] = None
             wm[eachTicker]['LAST_OP'] = None
             wm[eachTicker]['PRICE'] = feeder['CLOSE'][daystr]
-#            wm[eachTicker]['MMA7'] = feeder['MMA7'][daystr]
-            wm[eachTicker]['LAST_CLOSE'] = feeder['CLOSE'][prev_daystr]
-#            wm[eachTicker]['LAST_MMA9'] = feeder['MMA9'][prev_daystr]
-            
-#            wm[eachTicker]['LAST_MMA_D_9'] = feeder['MMA_D_9'][prev_daystr]
-#            wm[eachTicker]['LAST_MMA_D2_9'] = feeder['MMA_D2_9'][prev_daystr]            
-#            wm[eachTicker]['LAST_SIGN_D2_9'] = feeder['SIGN_D2_9'][prev_daystr]
-            
-#            wm[eachTicker]['LAST_MMA11'] = feeder['MMA11'][prev_daystr]
-#            wm[eachTicker]['LAST_MMA7'] = feeder['MMA7'][prev_daystr]
-#            wm[eachTicker]['LAST_MMA3'] = feeder['MMA3'][prev_daystr]
             wm[eachTicker]['INVALID_DATE'] = False
+
+
 
             # Checking for data validity
 
@@ -544,10 +754,10 @@ def workmemory_feeder(wm, slave, current_date):
 
 
 ############################################################################################################    
-if __name__ == '__main__':
-    #data = Data('CIEL3', (2015, 1, 1), (2016, 4, 20), source='google')  # ,WorkingDays = WorkingDays)
-
-    db = database_builder(['PETR3','ABEV3'],(2015,1,1),(2016,1,1))
-
-    ind,wd = calculate_indicators(['PETR3','ABEV3'],db,indicator_filter = ['C_MMA_9','C_HV_5','C_IFR_2'])
-    ############################################################################################################
+# if __name__ == '__main__':
+#     #data = Data('CIEL3', (2015, 1, 1), (2016, 4, 20), source='google')  # ,WorkingDays = WorkingDays)
+#
+#     db = database_builder(['AAPL','NFLX'],'2017-02-01','2018-03-02')
+#
+#     ind,wd = calculate_indicators(['AAPL','NFLX'],db,indicator_filter = ['C_HV_20','CLOSE'])
+#     ############################################################################################################
