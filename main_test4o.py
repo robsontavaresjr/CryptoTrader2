@@ -14,7 +14,7 @@ from TA_Trend            import *
 ######################################################
 
 # Aquisicao dos dados para CALCULO DE VARIAVEIS, nessa entidade start e end date devem ser o TIME_RANGE DE AQUISICAO DE DADOS. Ex: 5 anos atras
-StrategyLocation = 'Strategies/fast_n_furious.txt'
+StrategyLocation = 'Strategies/buy_n_hold.txt'
 
 # ==============================================================================
 # USE SOMENTE SE A VARIÁVEL ToExcel NÃO ESTIVER MARCADA COMO TRUE
