@@ -1249,9 +1249,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
     database = data_handler.database_builder(stocks, start_aq, end_aq, source=source)
     indicators, working_days = data_handler.calculate_indicators(stocks, database,indicator_filter = strategy_struct[0])
-    
     print 'Indicators calculated.'
-
     workmemory = data_handler.workmemory_builder(stocks)
     ############################################################################################################
 
@@ -1338,7 +1336,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
         plt.xlabel('Dias uteis')
         plt.ylabel('Unidade monetaria')
-        plt.show()
+        # plt.show()
 
     else:
         pass
@@ -1453,7 +1451,7 @@ def BacktestLoader(strategy_location, stocks, cash, database_or_location, operat
 
     plt.xlabel('Dias uteis')
     plt.ylabel('Unidade monetaria')
-    plt.show()
+    # plt.show()
 
     return trader
 

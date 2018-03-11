@@ -95,7 +95,7 @@ class Data:
             self.rawData = response.json()
             self.cryptoData = pds.DataFrame(self.rawData)
             self.cryptoData.columns = ['dates', 'Open', 'High', 'Low', 'Close', 'Volume']
-            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000))
+            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000).date())
 
             self.C = self.cryptoData['Close']
             self.H = self.cryptoData['High']
@@ -664,7 +664,6 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
                 index = int(tokens[0][1:])
 
             period_indicator.append([index,tokens[0],tokens[1]+'_'+tokens[2]])
-
 
     for eachTicker in slave.portfolio.keys():
 
