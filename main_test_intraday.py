@@ -13,12 +13,12 @@ import robotlib_ID as robot
 StrategyLocation = 'Strategies/buy_n_hold.txt'
 
 # ==============================================================================
-stocks =['NFLX','GOOG','FB','AMZN','AAPL'] # ['BVMF3','PETR4','DASA3','NATU3','ITSA4']  # ,
+stocks =['PETR3'] # ['BVMF3','PETR4','DASA3','NATU3','ITSA4']  # ,
 # ==============================================================================
 cash = 100E3
 
-interval = 300
-daysBack = 10
+interval = 1800
+daysBack = 5
 
 
 
@@ -29,5 +29,5 @@ Slave =  robot.backtest_simulation_acquisition(StrategyLocation, stocks, cash, i
                                                interest=1.19,
                                                stop_win=None,
                                                stop_loss=None,
-                                               plot_cashflow=True)
+                                               plot_simulation=True)
 

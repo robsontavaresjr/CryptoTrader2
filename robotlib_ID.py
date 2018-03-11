@@ -1248,8 +1248,8 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, interval
                                     interest=1.19,
                                     stop_win=None,
                                     stop_loss=None,
-                                    plot_cashflow=True,
-                                    plot_simulation = False):
+                                    plot_cashflow=False,
+                                    plot_simulation=True):
                                         
                         
     import data_handler_ID

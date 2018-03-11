@@ -7,7 +7,7 @@ Created on Wed Apr 27 10:13:02 2016
 import datetime as dt
 import numpy as np
 import pandas as pds
-import pandas.io.data as pd
+# import pandas.io.data as pd
 import IntraDay
 
 class Data_ID:
@@ -390,7 +390,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
         stock_data = database[eachTicker]
         
-        periods = [2,3,5,7,8,9,10,14,20,50,200]
+        periods = [2,3,5,7,8,9,10,14,21]
 
         for ind_ord in filter_:
 
