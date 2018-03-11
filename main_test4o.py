@@ -11,16 +11,18 @@ import numpy             as np
 import robotlib          as robot
 from TA_Finder           import *
 from TA_Trend            import *
+import data_handler
+import datetime as dt
 ######################################################
 
 # Aquisicao dos dados para CALCULO DE VARIAVEIS, nessa entidade start e end date devem ser o TIME_RANGE DE AQUISICAO DE DADOS. Ex: 5 anos atras
-StrategyLocation = 'Strategies/buy_n_hold.txt'
+StrategyLocation = 'Strategies/fast_n_furious.txt'
 
 # ==============================================================================
 # USE SOMENTE SE A VARIÁVEL ToExcel NÃO ESTIVER MARCADA COMO TRUE
 stocks = ['BTCUSD']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
 # ==============================================================================
-cash = 100E3
+cash = 1E9
 
 # DB = DataBaseLoader('Bovespa_2010_2016.pkl')
 
@@ -32,8 +34,7 @@ start_op = (2018,1, 3)
 end_op = (2018, 3, 2)
 OpRange = [start_op, end_op]
 
-
-# ==============================================================================
+#==============================================================================
 Slave = robot.backtest_simulation_acquisition(StrategyLocation, stocks, cash, AqRange, OpRange,
                                               risklib.bet_all ,
                                               brokerfee=14.9,

@@ -242,7 +242,7 @@ class SlaveTrader:
                 bought_price = stock_data['PRICE']
                 volume = stock_data['VOLUME']
                 date = stock_data['DATE']
-                day_count = self.wd[ticker].index(current_date) - self.wd[ticker].index(date)
+                day_count = np.where(self.wd[ticker] == current_date)[0][0] - np.where(self.wd[ticker] == date)[0][0]
 
             else:
 
@@ -550,7 +550,8 @@ class SlaveTrader:
                     sell_qtty += eachOrder['VOLUME']
                     sell_return += eachOrder['VOLUME'] * (current_workmemory['PRICE'] / eachOrder['PRICE'])
                     sell_logreturn += eachOrder['VOLUME'] * math.log(current_workmemory['PRICE'] / eachOrder['PRICE'])
-                    sell_exposition_days += (self.wd[eachStock].index(current_date) - self.wd[eachStock].index(eachOrder['DATE']))
+
+                    sell_exposition_days += (np.where(self.wd[eachStock] == current_date)[0][0] - np.where(self.wd[eachStock] == eachOrder['DATE'])[0][0])
                     
                     self.portfolio[eachStock][stock_data_index] = None
 
@@ -1284,7 +1285,8 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
         ############################################################################################################
         if show_dates:
             print 'Simulating date: ', current_date
-        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date,indicator_filter = strategy_struct[0])  # Updates WM
+
+        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date,indicator_filter=strategy_struct[0])  # Updates WM
 
         ############################################################################################################
 

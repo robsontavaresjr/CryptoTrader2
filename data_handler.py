@@ -6,6 +6,7 @@ import pandas as pds
 import pandas_datareader.data as pd
 import time
 import requests
+import pandas_datareader.data as web
 
 ############################################################################################################
 
@@ -35,7 +36,7 @@ class Data:
 
 
             stock_data = 'WIKI/' + self.ticker
-            stock_data = pds.DataReader(stock_data, self.source, self.start, self.end)
+            stock_data = web.DataReader(stock_data, self.source, self.start, self.end)
 
             self.C = stock_data['Close']
             self.H = stock_data['High']
@@ -96,13 +97,18 @@ class Data:
             self.cryptoData = pds.DataFrame(self.rawData)
             self.cryptoData.columns = ['dates', 'Open', 'High', 'Low', 'Close', 'Volume']
             self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000).date())
+            self.cryptoData = self.cryptoData.sort_values("dates", ascending=True)
+            self.cryptoData.reset_index(inplace=True)
+
+            dates = np.array(map(lambda date: dt.datetime.combine(date, dt.datetime.min.time()), self.cryptoData['dates'].values))
+            self.cryptoData.set_index(dates, inplace=True)
 
             self.C = self.cryptoData['Close']
             self.H = self.cryptoData['High']
             self.L = self.cryptoData['Low']
             self.V = self.cryptoData['Volume']
             self.O = self.cryptoData['Open']
-            self.dates = self.cryptoData['dates']
+            self.dates = dates
 
     def rsi_simples(self, order=14):
 
@@ -480,16 +486,16 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
         for eachindicator in indicator_filter:
             tokens = eachindicator.split('_')
             if len(tokens) == 3:
-                t,i,o = tokens
+                t, i, o = tokens
                 o = int(o)
             elif len(tokens) == 2:
-                t,i = tokens
+                t, i = tokens
                 o = 0
             else:
                 i = tokens[0]
                 o = 0
             if i in indicator_strings:
-                filter_.append([i,o])
+                filter_.append([i, o])
 
     for eachTicker in tickerList:
 
@@ -497,7 +503,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
         stock_data = database[eachTicker]
         
-        periods = [2,7,20,50]
+        periods = [2, 7, 20, 50]
 
         for ind_ord in filter_:
 
@@ -552,7 +558,7 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
                             db_ind['SIGNMMAD2' + '_' + str(i)] = md2sign
                     else:
 
-                        mma,std = stock_data.mma(order)
+                        mma, std = stock_data.mma(order)
 
                         if indicator in ('MMA','STD'):
 
@@ -634,7 +640,12 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 
 
 ############################################################################################################
-
+def date_stringify(dateObj):
+    if type(dateObj) == np.datetime64:
+        pydt = dt.datetime.strptime(str(dateObj), "%Y-%m-%dT%H:%M:%S.%f")
+    else:
+        pydt = dateObj
+    return pydt.strftime("%Y-%m-%d")
 
 def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
@@ -669,15 +680,16 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
         feeder = slave.database[eachTicker]
 
-        if current_date in slave.wd[eachTicker]:
+        if np.isin(current_date, slave.wd[eachTicker]).any():
 
-            daystr = str(current_date.date())
+            daystr = date_stringify(current_date)
 
-            prev_day = slave.wd[eachTicker][slave.wd[eachTicker].index(current_date) - 1]
-            prev_daystr = str(prev_day.date())
+            where = np.where(slave.wd[eachTicker] == current_date)[0][0]
+            prev_day = slave.wd[eachTicker][where - 1]
+            prev_daystr = date_stringify(prev_day)
 
-            two_prev_day = slave.wd[eachTicker][slave.wd[eachTicker].index(current_date) - 2]
-            two_prev_daystr = str(two_prev_day.date())
+            two_prev_day = slave.wd[eachTicker][where - 2]
+            two_prev_daystr = date_stringify(two_prev_day)
 
             if indicator_filter != []:
 
@@ -685,6 +697,7 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
                     if type(key) == str:
 
+                        print feeder[key]
                         wm[eachTicker][key] = feeder[key][daystr]
 
                     elif type(key) == list:
@@ -692,8 +705,8 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
                         index = key[0]
                         wmkey = key[1]+'_'+key[2]
 
-                        n_day = slave.wd[eachTicker][slave.wd[eachTicker].index(current_date) - index]
-                        n_day_str = str(n_day.date())
+                        n_day = slave.wd[eachTicker][where - index]
+                        n_day_str = date_stringify(n_day)
 
                         wm[eachTicker][wmkey] = feeder[key[2]][n_day_str]
                         
