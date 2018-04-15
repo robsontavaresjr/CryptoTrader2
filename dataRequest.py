@@ -3,10 +3,12 @@ import requests
 import pandas as pds
 import datetime as dt
 
-class DataReader:
+class DataRequest:
 
     def __init__(self, ticker, start, end, interval='1h', source='bitfinex'):
 
+        self.start = start
+        self.end = end
         self.interval = interval
         self.ticker = ticker
 
@@ -32,7 +34,7 @@ class DataReader:
         #
         #     self.OHLC = self.bitfinex()
 
-    def bitfinex(self):
+    def getFromBitfinex(self):
 
         # Structuring request's url
         ticker = self.ticker
@@ -51,7 +53,10 @@ class DataReader:
 
         return cryptoData
 
-start = dt.datetime(2018, 1, 1, 0, 0, 0)
-end = dt.datetime(2018, 4, 14, 0, 0, 0)
+# Apenas para teste
+if __name__ == "__main__":
 
-data = DataReader('ETHUSD', start, end)
+    start = dt.datetime(2018, 1, 1, 0, 0, 0)
+    end = dt.datetime(2018, 4, 14, 0, 0, 0)
+    reader = DataRequest('ETHUSD', start, end)
+    data = reader.getFromBitfinex()

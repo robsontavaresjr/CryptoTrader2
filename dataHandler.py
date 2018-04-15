@@ -5,11 +5,11 @@ import pandas as pds
 import pandas_datareader.data as pd
 import time
 import requests
-from BeautifulRequestData import *
+from dataRequest import DataRequest
 ############################################################################################################
 
 
-class Data:
+class DataHandler(DataRequest):
 
     def __init__(self, ticker, start, end, source='bitfinex', interval = '1h'):
 
@@ -18,13 +18,16 @@ class Data:
         self.end = end
         self.interval = interval
 
-        self.cryptoData =DataReader(self.ticker, self.start, self.end)
+        DataRequest.__init__(self, ticker, start, end, interval=interval, source=source)
 
         if source == 'bitfinex':
 
-            self.data = self.cryptoData.bitfinex()
+            self.data = self.getFromBitfinex()
             self.interval_gap = self.data.Date.diff()
             self.interval_gap.fillna(0, inplace=True)
+
+        else:
+            raise Exception("Source {0} not implemented.".format(source))
 
     #Standard log return of closing price
     def ln_return(self):
