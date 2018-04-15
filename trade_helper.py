@@ -13,7 +13,6 @@ import robotlib
 import risklib
 import xlwings
 
-
 if __name__ == '__main__':
 
     try:
@@ -37,7 +36,7 @@ if __name__ == '__main__':
 
         today = datetime.datetime.today()
 
-        current_date = datetime.datetime(today.year, today.month, today.day)
+        current_date = datetime.datetime(today.year, today.month, today.day) - datetime.timedelta(1)
 
         start_aq = current_date - datetime.timedelta(365)
         end_aq = current_date
@@ -49,7 +48,7 @@ if __name__ == '__main__':
                                                                      indicator_filter=strategy_struct[0])
         workmemory = data_handler.workmemory_builder(stocks)
 
-        trader = robotlib.SlaveTrader(strategy_struct, working_days, initcash=50000, database=indicators)
+        trader = robotlib.SlaveTrader(strategy_struct, working_days, initcash=15000, database=indicators)
         trader.update_portfolio_intention(workmemory)
         trader.set_brokerfee(14.9)
         trader.set_leverage(1.)
@@ -64,7 +63,7 @@ if __name__ == '__main__':
 
         today = datetime.datetime.today()
 
-        current_date = datetime.datetime(today.year, today.month, today.day)
+        current_date = datetime.datetime(today.year, today.month, today.day) - datetime.timedelta(1)
 
         start_aq = current_date - datetime.timedelta(365)
         end_aq = current_date
@@ -124,21 +123,12 @@ if __name__ == '__main__':
 
                 index += 1
 
-            xlwings.Range(1, (index, 1)).value = 'AFTER TRANSACTIONS PORTFOLIO'
-
-            for stock in trader.resumed_portfolio().keys():
-
-                index +=1
-
-                xlwings.Range(1, (index, 1)).value = stock
-                xlwings.Range(1, (index, 2)).value = trader.resumed_portfolio()[stock]
-
     else:
 
         print 'Simulating ... please wait.'
 
         workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date)
-        trader.perform_orders(workmemory, current_date, risklib.optimalf)
+        trader.perform_orders(workmemory, current_date, risklib.bet_all)
 
         xlwings.Workbook()
 
@@ -175,14 +165,6 @@ if __name__ == '__main__':
                     index += 1
 
             index += 1
-
-        xlwings.Range(1, (index, 1)).value = 'AFTER TRANSACTIONS PORTFOLIO'
-
-        for stock in trader.resumed_portfolio().keys():
-            index += 1
-
-            xlwings.Range(1, (index, 1)).value = stock
-            xlwings.Range(1, (index, 2)).value = trader.resumed_portfolio()[stock]
 
         file_ = file('current_slave.pkl','w')
         pickle.dump(trader, file_)

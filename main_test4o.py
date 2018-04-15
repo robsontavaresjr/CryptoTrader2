@@ -9,8 +9,8 @@ import risklib
 import matplotlib.pyplot as plt
 import numpy             as np
 import robotlib          as robot
-from TA_Finder           import *
-from TA_Trend            import *
+# from TA_Finder           import *
+# from TA_Trend            import *
 import data_handler
 import datetime as dt
 ######################################################
@@ -20,23 +20,23 @@ StrategyLocation = 'Strategies/fast_n_furious.txt'
 
 # ==============================================================================
 # USE SOMENTE SE A VARIÁVEL ToExcel NÃO ESTIVER MARCADA COMO TRUE
-stocks = ['BTCUSD']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
+stocks = ['LTCUSD']#'PETR4','DASA3','NATU3','ITSA4']  # ,'NFLX','GOOG','FB','AMZN','AAPL']
 # ==============================================================================
 cash = 1E9
 
 # DB = DataBaseLoader('Bovespa_2010_2016.pkl')
 
 start_aq = (2017, 1, 4)
-end_aq   = (2018, 3, 2)
+end_aq   = (2018, 4, 14)
 AqRange  = [start_aq, end_aq]
 
-start_op = (2018,1, 3)
-end_op = (2018, 3, 2)
+start_op = (2018,3, 1)
+end_op = (2018, 4, 14)
 OpRange = [start_op, end_op]
 
 #==============================================================================
 Slave = robot.backtest_simulation_acquisition(StrategyLocation, stocks, cash, AqRange, OpRange,
-                                              risklib.bet_all ,
+                                              risklib.optimalf,
                                               brokerfee=14.9,
                                               leverage=1.,
                                               interest=1.0615,

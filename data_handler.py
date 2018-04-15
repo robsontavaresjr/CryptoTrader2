@@ -12,7 +12,7 @@ import pandas_datareader.data as web
 
 
 class Data:
-    def __init__(self, ticker, start, end, source='bitfinex', interval = '1D', workingdays=None):
+    def __init__(self, ticker, start, end, source='bitfinex', interval = '1h', workingdays=None):
 
         if source == 'quandl':
 
@@ -96,19 +96,28 @@ class Data:
             self.rawData = response.json()
             self.cryptoData = pds.DataFrame(self.rawData)
             self.cryptoData.columns = ['dates', 'Open', 'High', 'Low', 'Close', 'Volume']
-            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000).date())
+            self.cryptoData['dates'] = self.cryptoData['dates'].apply(lambda x: dt.datetime.fromtimestamp(x / 1000))
             self.cryptoData = self.cryptoData.sort_values("dates", ascending=True)
             self.cryptoData.reset_index(inplace=True)
 
-            dates = np.array(map(lambda date: dt.datetime.combine(date, dt.datetime.min.time()), self.cryptoData['dates'].values))
-            self.cryptoData.set_index(dates, inplace=True)
+            # dates = np.array(map(lambda date: dt.datetime.combine(date, dt.datetime.min.time()), self.cryptoData['dates'].values))
+            self.cryptoData.set_index(self.cryptoData.dates, inplace=True)
 
             self.C = self.cryptoData['Close']
             self.H = self.cryptoData['High']
             self.L = self.cryptoData['Low']
             self.V = self.cryptoData['Volume']
             self.O = self.cryptoData['Open']
-            self.dates = dates
+            self.dates = np.array(map(lambda x: dt.datetime.strptime(str(x), "%Y-%m-%d %H:%M:%S"),  self.cryptoData.dates))
+
+            times = ['m', 'h', 'D', 'M']
+            timesDict = {'m': 60,
+                         'h': 3600,
+                         'D': 86400,
+                         'M': 2592000}
+
+            self.timeMark = times[times.index(self.interval[-1])]
+            self.tick = timesDict[self.timeMark] * eval(self.interval.split(self.timeMark)[0])
 
     def rsi_simples(self, order=14):
 
@@ -642,10 +651,10 @@ def calculate_indicators(tickerList, database,indicator_filter = []):
 ############################################################################################################
 def date_stringify(dateObj):
     if type(dateObj) == np.datetime64:
-        pydt = dt.datetime.strptime(str(dateObj), "%Y-%m-%dT%H:%M:%S.%f")
+        pydt = dt.datetime.strptime(repr(dateObj), "%Y-%m-%d %H:%M:%S")
     else:
         pydt = dateObj
-    return pydt.strftime("%Y-%m-%d")
+    return pydt.strftime("%Y-%m-%d %H:%M:%S")
 
 def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
 
@@ -722,13 +731,19 @@ def workmemory_feeder(wm, slave, current_date,indicator_filter = []):
                 wm[eachTicker]['L2_CLOSE'] = feeder['CLOSE'][two_prev_daystr]
 
             if 'HIGH' in feeder.keys():
-#                wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][prev_daystr], feeder['HIGH'][two_prev_daystr])
-                wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][daystr], feeder['HIGH'][prev_daystr])
-                wm[eachTicker]['LOWM2'] = min(feeder['LOW'][daystr], feeder['LOW'][prev_daystr])
+                try:
+                   # wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][prev_daystr], feeder['HIGH'][two_prev_daystr])
+                    wm[eachTicker]['HIGHM2'] = max(feeder['HIGH'][daystr], feeder['HIGH'][prev_daystr])
+                    wm[eachTicker]['LOWM2'] = min(feeder['LOW'][daystr], feeder['LOW'][prev_daystr])
+                except:
+                    pass
             if 'CLOSE' in feeder.keys():
-#                wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][prev_daystr], feeder['CLOSE'][two_prev_daystr])
-                wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][daystr], feeder['CLOSE'][prev_daystr])
-                
+               # wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][prev_daystr], feeder['CLOSE'][two_prev_daystr])
+                try:
+                    wm[eachTicker]['CLOSEM2'] = max(feeder['CLOSE'][daystr], feeder['CLOSE'][prev_daystr])
+                except:
+                    pass
+
             wm[eachTicker]['BUY'] = None
             wm[eachTicker]['SELL'] = None
             wm[eachTicker]['LAST_OP'] = None
