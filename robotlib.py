@@ -293,7 +293,7 @@ class SlaveTrader:
         if not workmemory[ticker]['INVALID_DATE']:
 
             for eachRule in self.strategy:
-                workmemory[ticker],track = tradex.execrule(eachRule, workmemory[ticker],ret_track = True)
+                workmemory[ticker],track = tradex.execrule(eachRule, workmemory[ticker],ret_back = True)
                 
                 if (buy_flag == False) and (workmemory[ticker]['BUY'] == True):
                     buy_flag = True
@@ -1271,7 +1271,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     day_list = [start_op]
 
     while not stop_flag:
-        next_day = day_list[-1] + dt.timedelta(days=1)
+        next_day = day_list[-1] + dt.timedelta(seconds=database[database.keys()[0]].tick)
         day_list.append(next_day)
 
         if next_day >= end_op:
@@ -1316,7 +1316,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
         print ""
         print "Medidas estatisticas: "
         print "Taxa de acerto: ", trader.win_rate(briefedPortfolio = True)
-        print "Expectativa Matematica: ", trader.expected_value()
+        # print "Expectativa Matematica: ", trader.expected_value()
         print "Recovery Factor: ", trader.recovery_factor()
         print "Max DD: ", trader.max_drowndown()
         print "Profit Factor: ", trader.profit_factor()

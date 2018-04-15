@@ -7,7 +7,6 @@ Created on Thu Oct 22 09:41:30 2015
 
 
 def workmemory(location):
-    
     arq = file(location, 'rU')
     lines = arq.readlines()
     arq.close()
@@ -56,7 +55,6 @@ def workmemory(location):
 
 
 def write_workmemory(wm, location):
-
     arq = open(location, 'w')
 
     for eachKey in wm.keys():
@@ -74,7 +72,6 @@ def write_workmemory(wm, location):
 
 
 def str2rule(rulestr):
-
     if rulestr == '':
 
         return None
@@ -89,7 +86,6 @@ def str2rule(rulestr):
         # Retira IF
 
         if rulestr[0] != " ":
-
             rulestr = " " + rulestr
 
         rulestr = rulestr.replace(" IF ", "")
@@ -97,19 +93,16 @@ def str2rule(rulestr):
         # Garante que inicia com espaco vazio
 
         if rulestr[0] != " ":
-
             rulestr = " " + rulestr
 
         # Garante que regra termina com espaco vazio
 
         if rulestr[-1] != " ":
-
             rulestr += " "
 
         for eachSymb in symbs.keys():
 
             if eachSymb in rulestr:
-
                 rulestr = rulestr.replace(eachSymb, symbs[eachSymb])
 
         # Separacao Antecedente/Consequente
@@ -173,7 +166,8 @@ def str2rule(rulestr):
         return rule
 
 
-def execrule(rule, wm, ret_exec=False):
+def execrule(rule, wm, ret_exec=False, ret_back=False):
+    track = {}
 
     if rule is None:
 
@@ -188,6 +182,9 @@ def execrule(rule, wm, ret_exec=False):
         for eachKey in wm.keys():
 
             if eachKey in antecedente:
+
+                if ret_back:
+                    track[eachKey] = wm[eachKey]
 
                 antecedente = antecedente.replace(" " + eachKey + " ", " " + repr(wm[eachKey]) + " ")
 
@@ -216,6 +213,8 @@ def execrule(rule, wm, ret_exec=False):
 
             if ret_exec:
                 return wm, alrdy_exec
+            if ret_back:
+                return wm, track
             else:
                 return wm
 
@@ -226,8 +225,8 @@ def execrule(rule, wm, ret_exec=False):
 
             raise Exception("Nao e possivel ler Antecedente")
 
-def read_kb(location):
 
+def read_kb(location):
     rules = []
     ret_vars = False
 
@@ -242,16 +241,16 @@ def read_kb(location):
         line = line.replace("\n", "")
         line = line.upper()
 
-        if line[0] == ':':
+        if line != "":
 
-            line = line[1:]
-            line = line.replace(' ',"")
-            variables_references = line.split(',')
-            ret_vars = True
+            if line[0] == ':':
 
-        else:
+                line = line[1:]
+                line = line.replace(' ', "")
+                variables_references = line.split(',')
+                ret_vars = True
 
-            if line != "":
+            else:
 
                 for eachSymb in symbs.keys():
                     line = line.replace(eachSymb, symbs[eachSymb])
@@ -260,13 +259,12 @@ def read_kb(location):
                 rules.append(rule)
 
     if ret_vars:
-        return variables_references,rules
+        return variables_references, rules
     else:
-        return [],rules
+        return [], rules
 
 
 def clear_wm(wm):
-
     for eachKey in wm.keys():
         wm[eachKey] = None
 
