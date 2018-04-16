@@ -4,11 +4,7 @@ Created on Thu Feb 25 13:12:49 2016
 
 @author: Aluno - Joao
 """
-import robotlib
-import datetime
-import data_handler_ID
 import optlib
-import copy
 import numpy as np
 
 

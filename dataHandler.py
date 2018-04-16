@@ -114,28 +114,26 @@ class DataHandler(DataRequest):
 
 class DatabaseBuilder:
 
-    def __init__(self, tickerList, start_aq, end_aq, source='bitfinex'):
+    def __init__(self, tickerList, start_aq, end_aq, source):
 
         self.database = {}
         self.tickerList = tickerList
         self.start = start_aq
         self.end = end_aq
 
-
         for eachTicker in self.tickerList:
 
             aq_ok = False
-
             ex_counter = 0
 
-            while aq_ok == False:
+            while not aq_ok:
 
                 if ex_counter == 5:
                     raise Exception('Couldnt not acquire data for ' + str(eachTicker) + ' after 5 tries')
 
                 try:
 
-                    mydata = Data(eachTicker, self.start, self.end)
+                    mydata = DataHandler(eachTicker, self.start, self.end, source=source)
                     self.database[eachTicker] = mydata
                     aq_ok = True
 
@@ -153,13 +151,9 @@ class DatabaseBuilder:
         periodic_indicators = ['IFR', 'IFRS', 'MMA', 'STD',
                              'HV', 'UBB', 'DBB', 'MMAD', 'MMAD2', 'ATR']
 
-
         for eachTicker in self.database.keys():
-
             db_ind = self.database[eachTicker].data.copy()
-
             for eachIndicator in indicator_filter:
-
                 if eachIndicator in periodic_indicators:
                     for eachPeriod in period_filter:
 
@@ -192,12 +186,32 @@ class DatabaseBuilder:
 
         return indicators
 
+def workmemoryFeeder(indicators, date):
+
+    wm = {key : {} for key in indicators.keys()}
+    for ticker in indicators.keys():
+        data = indicators[ticker][indicators[ticker]["Date"].isin([date])]
+        data.columns = map(lambda name : name.upper(), data.columns)
+        if len(data) == 1:
+            dataDict = data.to_dict(orient="list")
+            for key in dataDict.keys():
+                dataDict[key] = dataDict[key][0]
+            wm[ticker] = dataDict
+            wm[ticker]["INVALID_DATE"] = False
+            wm[ticker]["PRICE"] = wm[ticker]["CLOSE"]
+        else:
+            wm[ticker]["INVALID_DATE"] = True
+
+        wm[ticker]["LAST_OP"] = None
+        wm[ticker]["BUY"] = None
+        wm[ticker]["SELL"] = None
+    return wm
 
 
+if __name__ == "__main__":
+    start = dt.datetime(2018, 1, 1, 0, 0, 0)
+    end = dt.datetime(2018, 4, 14, 0, 0, 0)
+    ticker = 'ETHUSD'
 
-start = dt.datetime(2018, 1, 1, 0, 0, 0)
-end = dt.datetime(2018, 4, 14, 0, 0, 0)
-ticker = 'ETHUSD'
-
-db = DatabaseBuilder(['ETHUSD', 'BTCUSD'], start, end)
-db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR'], period_filter=[7, 14, 21])
+    db = DatabaseBuilder(['ETHUSD', 'BTCUSD'], start, end, source="bitfinex")
+    data = db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR'], period_filter=[7, 14, 21])

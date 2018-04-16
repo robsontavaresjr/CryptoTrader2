@@ -162,11 +162,11 @@ class SlaveTrader:
 
         self.wd = wd
 
-    def update_portfolio_intention(self, workmemory):
+    def update_portfolio_intention(self, tickers):
 
         ######################################################        
 
-        for eachKey in workmemory.keys():
+        for eachKey in tickers:
 
             if eachKey not in self.portfolio.keys():
 
@@ -1211,7 +1211,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
                                     operation_period=0,
                                     show_statistics=True,
                                     show_dates=False):
-    import data_handler
+    import dataHandler
     import datetime as dt
     import tradex
     import matplotlib.pyplot as plt
@@ -1248,16 +1248,23 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 
     print type(start_aq), start_aq, type(end_aq), end_aq
 
-    database = data_handler.database_builder(stocks, start_aq, end_aq, source=source)
-    indicators, working_days = data_handler.calculate_indicators(stocks, database,indicator_filter = strategy_struct[0])
+    database = dataHandler.DatabaseBuilder(stocks, start_aq, end_aq, source=source)
+    indicators = database.calculateIndicators(indicator_filter=strategy_struct[0])
+
+    # Buscando todas as datas nos dataframes
+    wds = {}
+    for key in indicators.keys():
+        working_days = indicators[key]["Date"].copy()
+        mask = np.logical_and(working_days >= start_op, working_days <= end_op)
+        wds[key] = working_days[mask]
     print 'Indicators calculated.'
-    workmemory = data_handler.workmemory_builder(stocks)
+
     ############################################################################################################
 
     # Gera entidade SlaveTrader para operar
 
-    trader = SlaveTrader(strategy_struct, working_days, initcash=cash, database=indicators)
-    trader.update_portfolio_intention(workmemory)
+    trader = SlaveTrader(strategy_struct, wds, initcash=cash, database=indicators)
+    trader.update_portfolio_intention(indicators.keys())
     trader.set_brokerfee(brokerfee)
     trader.set_leverage(leverage)
     trader.set_interest(interest)
@@ -1266,27 +1273,13 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     trader.set_operation_period(dt.timedelta(operation_period))
 
     ############################################################################################################
-
-    stop_flag = False
-    day_list = [start_op]
-
-    while not stop_flag:
-        next_day = day_list[-1] + dt.timedelta(seconds=database[database.keys()[0]].tick)
-        day_list.append(next_day)
-
-        if next_day >= end_op:
-            stop_flag = True
-        else:
-            pass
-
-    ############################################################################################################
     print 'Simulating ... please wait.'
-    for current_date in day_list:
+    for current_date in working_days:
         ############################################################################################################
         if show_dates:
             print 'Simulating date: ', current_date
 
-        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date,indicator_filter=strategy_struct[0])  # Updates WM
+        workmemory = dataHandler.workmemoryFeeder(indicators, current_date)
 
         ############################################################################################################
 
@@ -1349,112 +1342,112 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
 ########################################################################################################################################################################################################################
 
 ########################################################################################################################################################################################################################
-
-def BacktestLoader(strategy_location, stocks, cash, database_or_location, operation_range, risk_function,
-                   brokerfee=14.9,
-                   leverage=1.,
-                   interest=1.19):
-    import data_handler
-    import tradex
-    import matplotlib.pyplot as plt
-
-    start_op = dt.datetime(*operation_range[0])
-    end_op = dt.datetime(*operation_range[1])
-
-    ############################################################################################################
-    if type(database_or_location) == str:
-        database = data_handler.database_loader(database_or_location)
-    else:
-        database = database_or_location
-
-    indicators, working_days = data_handler.calculate_indicators(stocks, database)
-    print 'Indicators calculated.'
-
-    workmemory = data_handler.workmemory_builder(stocks)
-    ############################################################################################################
-
-    ############################################################################################################
-    current_strategy = tradex.read_kb(strategy_location)
-    ############################################################################################################
-
-    # Gera entidade SlaveTrader para operar
-
-    trader = SlaveTrader(current_strategy, working_days, initcash=cash, database=indicators)
-    trader.update_portfolio_intention(workmemory)
-    trader.set_brokerfee(brokerfee)
-    trader.set_leverage(leverage)
-    trader.set_interest(interest)
-
-    ############################################################################################################
-
-    stop_flag = False
-    day_list = [start_op]
-
-    while stop_flag == False:
-        next_day = day_list[-1] + dt.timedelta(days=1)
-        day_list.append(next_day)
-
-        if next_day >= end_op:
-            stop_flag = True
-        else:
-            pass
-
-    ############################################################################################################
-    print 'Simulating ... please wait.'
-    for current_date in day_list:
-        ############################################################################################################
-
-        workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date)  # Updates WM
-
-        ############################################################################################################
-
-        trader.perform_orders(workmemory, current_date, risk_function)  # Slave Perform operations
-
-        ############################################################################################################
-
-    print '=' * 50
-    print ''
-    print "Inicio de operacao em: ", start_op
-    print ''
-    print "Cash inicial: ", cash
-    print "Situacao final: ", trader.resumed_portfolio()
-
-    print ''
-
-    print "Dinheiro em caixa", trader.cash
-    print "Dinheiro em portfolio atual", trader.cash_in_portfolio(workmemory)
-    print ''
-    print "Dinheiro total: ", trader.total_cash(workmemory)
-    print "Profit total no periodo (%):", trader.total_cash(workmemory) / cash
-    print ''
-    print "Fim de operacao em: ", current_date
-
-    print ""
-    print "Medidas estatisticas: "
-    print "Taxa de acerto: ", trader.win_rate(brifedPortfolio = True)
-    print "Expectativa Matematica: ", trader.expected_value()
-    print "Recovery Factor: ", trader.recovery_factor()
-    print "Max DD: ", trader.max_drowndown()
-    print "Profit Factor: ", trader.profit_factor()
-    print "PayOff: ", trader.payoff()
-    print "Max Min: ", trader.max_min()
-
-    plt.figure()
-    plt.plot(trader.total_cash_log, 'b')
-    plt.title(strategy_location + ' total cash.')
-    plt.xlabel('Dias uteis')
-    plt.ylabel('Unidade monetaria')
-    plt.show()
-
-    plt.figure()
-    plt.plot(trader.total_cash_log, 'b')
-    plt.title(strategy_location + ' total cash/cash')
-    plt.plot(trader.cash_log, 'k')
-
-    plt.xlabel('Dias uteis')
-    plt.ylabel('Unidade monetaria')
-    # plt.show()
-
-    return trader
+#
+# def BacktestLoader(strategy_location, stocks, cash, database_or_location, operation_range, risk_function,
+#                    brokerfee=14.9,
+#                    leverage=1.,
+#                    interest=1.19):
+#     import data_handler
+#     import tradex
+#     import matplotlib.pyplot as plt
+#
+#     start_op = dt.datetime(*operation_range[0])
+#     end_op = dt.datetime(*operation_range[1])
+#
+#     ############################################################################################################
+#     if type(database_or_location) == str:
+#         database = data_handler.database_loader(database_or_location)
+#     else:
+#         database = database_or_location
+#
+#     indicators, working_days = data_handler.calculate_indicators(stocks, database)
+#     print 'Indicators calculated.'
+#
+#     workmemory = data_handler.workmemory_builder(stocks)
+#     ############################################################################################################
+#
+#     ############################################################################################################
+#     current_strategy = tradex.read_kb(strategy_location)
+#     ############################################################################################################
+#
+#     # Gera entidade SlaveTrader para operar
+#
+#     trader = SlaveTrader(current_strategy, working_days, initcash=cash, database=indicators)
+#     trader.update_portfolio_intention(workmemory)
+#     trader.set_brokerfee(brokerfee)
+#     trader.set_leverage(leverage)
+#     trader.set_interest(interest)
+#
+#     ############################################################################################################
+#
+#     stop_flag = False
+#     day_list = [start_op]
+#
+#     while stop_flag == False:
+#         next_day = day_list[-1] + dt.timedelta(days=1)
+#         day_list.append(next_day)
+#
+#         if next_day >= end_op:
+#             stop_flag = True
+#         else:
+#             pass
+#
+#     ############################################################################################################
+#     print 'Simulating ... please wait.'
+#     for current_date in day_list:
+#         ############################################################################################################
+#
+#         workmemory = data_handler.workmemory_feeder(workmemory, trader, current_date)  # Updates WM
+#
+#         ############################################################################################################
+#
+#         trader.perform_orders(workmemory, current_date, risk_function)  # Slave Perform operations
+#
+#         ############################################################################################################
+#
+#     print '=' * 50
+#     print ''
+#     print "Inicio de operacao em: ", start_op
+#     print ''
+#     print "Cash inicial: ", cash
+#     print "Situacao final: ", trader.resumed_portfolio()
+#
+#     print ''
+#
+#     print "Dinheiro em caixa", trader.cash
+#     print "Dinheiro em portfolio atual", trader.cash_in_portfolio(workmemory)
+#     print ''
+#     print "Dinheiro total: ", trader.total_cash(workmemory)
+#     print "Profit total no periodo (%):", trader.total_cash(workmemory) / cash
+#     print ''
+#     print "Fim de operacao em: ", current_date
+#
+#     print ""
+#     print "Medidas estatisticas: "
+#     print "Taxa de acerto: ", trader.win_rate(brifedPortfolio = True)
+#     print "Expectativa Matematica: ", trader.expected_value()
+#     print "Recovery Factor: ", trader.recovery_factor()
+#     print "Max DD: ", trader.max_drowndown()
+#     print "Profit Factor: ", trader.profit_factor()
+#     print "PayOff: ", trader.payoff()
+#     print "Max Min: ", trader.max_min()
+#
+#     plt.figure()
+#     plt.plot(trader.total_cash_log, 'b')
+#     plt.title(strategy_location + ' total cash.')
+#     plt.xlabel('Dias uteis')
+#     plt.ylabel('Unidade monetaria')
+#     plt.show()
+#
+#     plt.figure()
+#     plt.plot(trader.total_cash_log, 'b')
+#     plt.title(strategy_location + ' total cash/cash')
+#     plt.plot(trader.cash_log, 'k')
+#
+#     plt.xlabel('Dias uteis')
+#     plt.ylabel('Unidade monetaria')
+#     # plt.show()
+#
+#     return trader
 
     ########################################################################################################################################################################################################################
