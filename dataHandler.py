@@ -111,6 +111,74 @@ class DataHandler(DataRequest):
 
         return data[['Date', 'Interval', 'Close', 'TRUE_RANGE']]
 
+    def average_true_range(self, order=14):
+
+        data = self.data.copy()
+        data['Interval'] = self.interval
+        tr = self.true_range()['TRUE_RANGE']
+
+        atr = tr.ewm(span=order).mean()
+
+        return data[['Date', 'Interval', 'Close', 'AVG_TRUE_RANGE']]
+
+    def rsi_simples(self, order=14):
+
+        data = self.data.copy()
+        data['Interval'] = self.interval
+        incremental = 1
+
+        data['Diff'] = data.Close.diff()
+        data['Diff'].fillna(0, inplace=True)
+
+        data['Ups'] = data.Diff
+        data['Downs'] = data.Diff
+
+        data.Ups.loc[data.Ups < 0] = 0.
+        data.Downs.loc[data.Diff > 0] = 0.
+        data.Downs = data.Downs.apply(lambda x: abs(x))
+
+        data.Ups = data.Ups.rolling(order, min_periods=order).mean()
+        data.Ups.fillna(0, inplace=True)
+
+        data.Downs = data.Downs.rolling(order, min_periods=order).mean()
+        data.Downs.fillna(0, inplace=True)
+        # data.Downs.loc[data.Downs == 0] = 1
+
+        data['RSI'] = 100. - (100. / (1. + (data.Ups.values / data.Downs.values)))
+        data['RSI'].fillna(0, inplace=True)
+
+        return data[['Date', 'Interval', 'Close', 'RSI']]
+
+
+    def rsi(self, order=7):
+
+        data = self.data.copy()
+        data['Interval'] = self.interval
+
+        data['Diff'] = data.Close.diff()
+        data['Diff'].fillna(0, inplace=True)
+
+        data['Ups'] = data.Diff
+        data['Downs'] = data.Diff
+
+        data.Ups.loc[data.Ups < 0] = 0.
+        data.Downs.loc[data.Diff > 0] = 0.
+        data.Downs = data.Downs.apply(lambda x: abs(x))
+
+        mult = (order-1)/float(order)
+
+        data.Ups = data.Ups.ewm(span=order).mean()
+        data.Ups.fillna(0, inplace=True)
+
+        data.Downs = data.Downs.ewm(span=order).mean()
+        data.Downs.fillna(0, inplace=True)
+        data.Downs.loc[data.Downs == 0] = 1
+
+        data['RSI'] = 100. - (100./(1. +(data.Ups.values/data.Downs.values)))
+        data['RSI'].fillna(0, inplace=True)
+
+        return data[['Date', 'Interval', 'Close', 'RSI']]
+
 
 class DatabaseBuilder:
 
@@ -135,7 +203,7 @@ class DatabaseBuilder:
 
                 try:
 
-                    mydata = Data(eachTicker, self.start, self.end)
+                    mydata = DataHandler(eachTicker, self.start, self.end)
                     self.database[eachTicker] = mydata
                     aq_ok = True
 
@@ -161,9 +229,24 @@ class DatabaseBuilder:
             for eachIndicator in indicator_filter:
 
                 if eachIndicator in periodic_indicators:
+
                     for eachPeriod in period_filter:
 
-                        if eachIndicator == 'MMA':
+                        if eachIndicator == 'IFRS':
+
+                            db_ind['IFRS_' + str(eachPeriod)] = \
+                                self.database[eachTicker].rsi_simples(order=eachPeriod)['RSI']
+
+                        elif eachIndicator == 'IFR':
+
+                            db_ind['IFR_' + str(eachPeriod)] = \
+                                self.database[eachTicker].rsi(order=eachPeriod)['RSI']
+
+                        elif eachIndicator == 'ATR':
+                            db_ind['ATR_' + str(eachPeriod)] = \
+                                self.database[eachTicker].average_true_range(order=eachPeriod)['AVG_TRUE_RANGE']
+
+                        elif eachIndicator == 'MMA':
 
                             db_ind['MMA_' + str(eachPeriod)] = \
                                 self.database[eachTicker].mma(order=eachPeriod)['MMA'].values
@@ -193,11 +276,12 @@ class DatabaseBuilder:
         return indicators
 
 
+if __name__ == "__main__":
 
+    start = dt.datetime(2018, 1, 1, 0, 0, 0)
+    end = dt.datetime(2018, 4, 14, 0, 0, 0)
+    ticker = 'ETHUSD'
 
-start = dt.datetime(2018, 1, 1, 0, 0, 0)
-end = dt.datetime(2018, 4, 14, 0, 0, 0)
-ticker = 'ETHUSD'
-
-db = DatabaseBuilder(['ETHUSD', 'BTCUSD'], start, end)
-db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR'], period_filter=[7, 14, 21])
+    db = DatabaseBuilder(['ETHUSD', 'BTCUSD'], start, end)
+    # rsi = db.database['BTCUSD'].rsi_simples(order=7)
+    A = db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR', 'IFR'], period_filter=[7, 14, 21])
