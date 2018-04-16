@@ -1249,7 +1249,7 @@ def backtest_simulation_acquisition(strategy_or_location, stocks, cash, acquisit
     print type(start_aq), start_aq, type(end_aq), end_aq
 
     database = dataHandler.DatabaseBuilder(stocks, start_aq, end_aq, source=source)
-    indicators = database.calculateIndicators(indicator_filter=strategy_struct[0])
+    indicators = database.calculateIndicators(indicator_filter=strategy_struct[0], period_filter=[2, 7, 50])
 
     # Buscando todas as datas nos dataframes
     wds = {}

@@ -223,6 +223,7 @@ class DatabaseBuilder:
             db_ind = self.database[eachTicker].data.copy()
             for eachIndicator in indicator_filter:
                 if eachIndicator in periodic_indicators:
+
                     for eachPeriod in period_filter:
 
                         if eachIndicator == 'IFRS':
@@ -289,10 +290,10 @@ def workmemoryFeeder(indicators, date):
         wm[ticker]["SELL"] = None
     return wm
 
-
 if __name__ == "__main__":
     start = dt.datetime(2018, 1, 1, 0, 0, 0)
     end = dt.datetime(2018, 4, 14, 0, 0, 0)
     ticker = 'ETHUSD'
-
     db = DatabaseBuilder(['ETHUSD', 'BTCUSD'], start, end, source="bitfinex")
+    data = db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR'], period_filter=[7, 14, 21])
+    A = db.calculateIndicators(indicator_filter=['MMA', 'MME', 'LNR', 'TR', 'IFR'], period_filter=[7, 14, 21])
