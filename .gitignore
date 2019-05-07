@@ -1,0 +1,11 @@
+data_handler.pyc
+optlib.pyc
+risklib.pyc
+robotlib.pyc
+TA_Finder.pyc
+TA_Trend.pyc
+tradex.pyc
+.idea/CryptoTrader2.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/workspace.xml
